@@ -37,17 +37,17 @@ echo $APP_MODULES | xargs -n 1 echo | while read LIB ; do
 done
 )
 
-MISSING_INCLUDE=
+MISSING_INCLUDE=-isystem$LOCAL_PATH/../sqlite
 MISSING_LIB=
 
 #if [ -n "$CRYSTAX_WCHAR" ]; then
 #	MISSING_INCLUDE="$MISSING_INCLUDE -isystem$NDK/sources/crystax/include"
 #	MISSING_LIB="$MISSING_LIB $NDK/sources/crystax/libs/armeabi/libcrystax_static.a"
 #fi
-#if [ -n "$MISSING_LIBCXX_PATH" ]; then
-#	MISSING_INCLUDE="$MISSING_INCLUDE -isystem$NDK/sources/cxx-stl/gnu-libstdc++/include"
-#	MISSING_LIB="$MISSING_LIB -lgnustl_static -lsupc++"
-#fi
+if [ -n "$MISSING_LIBCXX_PATH" ]; then
+	MISSING_INCLUDE="$MISSING_INCLUDE -isystem$NDK/sources/cxx-stl/gnu-libstdc++/include"
+	MISSING_LIB="$MISSING_LIB -lgnustl_static -lsupc++"
+fi
 
 CFLAGS="\
 -fexceptions -frtti \

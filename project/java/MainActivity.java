@@ -38,6 +38,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.FrameLayout;
 import android.graphics.drawable.Drawable;
+import android.graphics.Color; //@@CW
 import android.content.res.Configuration;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -304,6 +305,8 @@ public class MainActivity extends Activity {
 			}
 		};
 		_screenKeyboard = new EditText(this);
+		_screenKeyboard.setBackgroundColor(Color.TRANSPARENT); //@@CW change the text input's background colour to transparent so that it blends better with the native app
+		_screenKeyboard.setTextColor(Color.WHITE); //@CW white text on blackish -- this should probably be done using styles  :(
 		_videoLayout.addView(_screenKeyboard);
 		_screenKeyboard.setOnKeyListener(new myKeyListener(this, sendBackspace));
 		_screenKeyboard.setHint(R.string.text_edit_click_here);
@@ -497,6 +500,8 @@ public class MainActivity extends Activity {
 				}
 				catch( UnsatisfiedLinkError e )
 				{
+					System.out.println(e.getMessage());
+					e.printStackTrace();
 					System.loadLibrary(l);
 				}
 			}
@@ -693,6 +698,7 @@ public class MainActivity extends Activity {
 		{
 			for(String l : libs)
 			{
+				System.out.println("Post-loading library"+l);
 				System.loadLibrary(l);
 			}
 		}
