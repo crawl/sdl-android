@@ -68,6 +68,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Message;
+import android.graphics.PixelFormat;
 
 public class MainActivity extends Activity {
 	@Override
@@ -82,6 +83,7 @@ public class MainActivity extends Activity {
 		if(Globals.InhibitSuspend)
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
 					WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		getWindow().setFormat(PixelFormat.RGBA_8888);
 
 		System.out.println("libSDL: Creating startup screen");
 		_layout = new LinearLayout(this);
@@ -343,12 +345,13 @@ public class MainActivity extends Activity {
 	@Override
 	public boolean onKeyDown(int keyCode, final KeyEvent event)
 	{
+		int uKeyCode = event.getUnicodeChar(event.getMetaState());
 		if(_screenKeyboard != null)
 			_screenKeyboard.onKeyDown(keyCode, event);
 		else
 		if( mGLView != null )
 		{
-			if( mGLView.nativeKey( keyCode, 1 ) == 0 )
+			if( mGLView.nativeKey( keyCode, uKeyCode, 1 ) == 0 )
 				return super.onKeyDown(keyCode, event);
 		}
 		else
@@ -375,7 +378,7 @@ public class MainActivity extends Activity {
 		else
 		if( mGLView != null )
 		{
-			if( mGLView.nativeKey( keyCode, 0 ) == 0 )
+			if( mGLView.nativeKey( keyCode, 0, 0 ) == 0 )
 				return super.onKeyUp(keyCode, event);
 		}
 		return true;

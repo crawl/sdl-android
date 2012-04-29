@@ -617,16 +617,18 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 	};
 
 	// This seems like redundant code - it handled in MainActivity.java
+	// CW: this is definitely called by the emulator's keyboard
 	@Override
 	public boolean onKeyDown(int keyCode, final KeyEvent event) {
-		if( nativeKey( keyCode, 1 ) == 0 )
+	int uKeyCode = event.getUnicodeChar(event.getMetaState());
+ 	if( nativeKey( keyCode, uKeyCode, 1 ) == 0 )
 				return super.onKeyDown(keyCode, event);
 		return true;
 	}
 	
 	@Override
 	public boolean onKeyUp(int keyCode, final KeyEvent event) {
-		if( nativeKey( keyCode, 0 ) == 0 )
+		if( nativeKey( keyCode, 0, 0 ) == 0 )
 				return super.onKeyUp(keyCode, event);
 		return true;
 	}
@@ -636,7 +638,7 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 	DifferentTouchInput touchInput = null;
 
 	public static native void nativeMouse( int x, int y, int action, int pointerId, int pressure, int radius );
-	public static native int nativeKey( int keyCode, int down );
+	public static native int nativeKey( int keyCode, int uKeyCode, int down );
 	public static native void nativeTouchpad( int x, int y, int down, int multitouch );
 	public static native void initJavaCallbacks();
 
