@@ -76,11 +76,12 @@ class Globals {
 	public static int TrackballDampening = 0;
 	public static int AudioBufferConfig = 0;
 	public static boolean OptionalDataDownload[] = null;
-	public static int LeftClickMethod = AppNeedsTwoButtonMouse ? Mouse.LEFT_CLICK_WITH_TAP_OR_TIMEOUT : Mouse.LEFT_CLICK_NORMAL;
+        // changed left and right click defaults to be a bit more sensible for crawl
+	public static int LeftClickMethod = AppNeedsTwoButtonMouse ? Mouse.LEFT_CLICK_WITH_TAP : Mouse.LEFT_CLICK_NORMAL;
 	public static int LeftClickKey = KeyEvent.KEYCODE_DPAD_CENTER;
 	public static int LeftClickTimeout = 3;
 	public static int RightClickTimeout = 4;
-	public static int RightClickMethod = AppNeedsTwoButtonMouse ? Mouse.RIGHT_CLICK_WITH_MULTITOUCH : Mouse.RIGHT_CLICK_NONE;
+	public static int RightClickMethod = AppNeedsTwoButtonMouse ? Mouse.RIGHT_CLICK_WITH_TIMEOUT : Mouse.RIGHT_CLICK_NONE;
 	public static int RightClickKey = KeyEvent.KEYCODE_MENU;
 	public static boolean MoveMouseWithJoystick = false;
 	public static int MoveMouseWithJoystickSpeed = 0;
