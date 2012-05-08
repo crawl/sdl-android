@@ -47,13 +47,19 @@ LOCAL_LDFLAGS := -Lobj/local/armeabi
 
 LOCAL_LDFLAGS += $(APPLICATION_ADDITIONAL_LDFLAGS)
 
-ifneq ($(NDK_R7_TOOLCHAIN)$(CRYSTAX_R7_TOOLCHAIN),) # NDK r7 broke it even more
+ifneq ($(CRYSTAX_R7_TOOLCHAIN),) # Crystax has 4.6.3 support and puts its libs somewhere slightly different
+LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/include
+LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/libs/$(TARGET_ARCH_ABI)/$(APP_TOOLCHAIN_VERSION) -lgnustl_static
+else
+#ifneq ($(NDK_R7_TOOLCHAIN)$(CRYSTAX_R7_TOOLCHAIN),) # NDK r7 broke it even more
+ifneq ($(NDK_R7_TOOLCHAIN),) # NDK r7 broke it even more
 LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/include
 LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/libs/$(TARGET_ARCH_ABI) -lgnustl_static
 else
 ifneq ($(NDK_R6_TOOLCHAIN),) # NDK r6 broke it
 LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/include
 LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/libs/$(TARGET_ARCH_ABI) -lstdc++
+endif
 endif
 endif
 
