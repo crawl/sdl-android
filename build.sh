@@ -6,7 +6,7 @@ NDKBUILDPATH=$PATH
 export `grep "AppFullName=" AndroidAppSettings.cfg`
 if ( grep "package $AppFullName;" project/src/Globals.java > /dev/null && \
 		[ "`readlink AndroidAppSettings.cfg`" -ot "project/src/Globals.java" ] && \
-		[ -z "`find project/java/* -cnewer project/src/Globals.java`" ] && \
+		[ -z "`find project/java/* project/AndroidManifestTemplate.xml -cnewer project/src/Globals.java`" ] && \
 		[ -z "`find project/jni/application/src/AndroidData/* -cnewer project/src/Globals.java`" ] ) ; then true ; else
 	./ChangeAppSettings.sh -a
 	sleep 1
@@ -28,7 +28,7 @@ rm -r -f project/bin/* # New Android SDK introduced some lame-ass optimizations 
 
 cd project && env PATH=$NDKBUILDPATH nice -n19 ndk-build V=1 -j4 && \
  { grep "CustomBuildScript=y" ../AndroidAppSettings.cfg > /dev/null && \
-   [ -`which ndk-build | grep '/android-ndk-r[56789]'` != - ] && \
+   [ -`which ndk-build | xargs readlink -f | grep '/android-ndk-r[56789]'` != - ] && \
    echo Stripping libapplication.so by hand \
    rm obj/local/armeabi/libapplication.so && \
    cp jni/application/src/libapplication.so obj/local/armeabi && \

@@ -8,7 +8,7 @@ Also this port is developed very slowly, although the same is true for an offici
 Installation
 ============
 
-This project should be compiled with Android 3.1 SDK (API level 12) and NDK r6 or r5c,
+This project should be compiled with Android 3.1 SDK (API level 15) and NDK r8, r7c, r6 or r5c,
 google for them and install them as described in their docs.
 You'll need to install Java Ant too.
 The application will run on Android OS 1.6 and above, don't mind the 3.1 dependency.
@@ -28,12 +28,12 @@ Launch commands
 	rm project/jni/application/src
 	ln -s ballfield project/jni/application/src
 	./ChangeAppSettings.sh -a
-	android update project -p project -t android-12
+	android update project -p project -t android-15
 Then edit file build.sh if needed to add NDK dir to your PATH, then launch it.
 It will compile a bunch of libs under project/libs/armeabi,
 create file project/bin/DemoActivity-debug.apk and install it on your device or emulator.
 Then you can test it by launching Ballfield icon from Android applications menu.
-It's designed for 320x240, so if you have smaller screen it will be resized.
+It's designed for 320x240, so if you have bigger screen it will be resized.
 
 The game enforces horizontal screen orientation, you may slide-open your keyboard if you have it
 and use it for additional keys - the device will just keep current screen orientation.
@@ -94,33 +94,23 @@ on public HTTP server - you may specify URL in ChangeAppSettings.sh, also you ma
 If you'll release new version of data files you should change download URL or data file name and update your app as well -
 the app will re-download the data if URL does not match the saved URL from previous download.
 
-All devices have different screen resolutions, you may toggle automatic
-screen resizing in ChangeAppSettings.sh and draw to virtual 640x480 screen -
-it will be HW accelerated and will not impact performance.
-SDL_ListModes()[0] will always return native screen resolution.
+All devices have different screen resolutions, you may toggle automatic screen resizing
+in ChangeAppSettings.sh and draw to virtual 640x480 screen - it will be HW accelerated
+and will not impact performance. Automatic screen resizing does not work in SDL 1.3/2.0.
+SDL_GetVideoInfo() or SDL_ListModes(NULL, 0)[0] will always return native screen resolution.
 Also make sure that your HW textures are not wider than 1024 pixels, or it will fail to allocate such
 texture on HTC G1, and other low-end devices. Software surfaces may be of any size of course.
 
 If you want HW acceleration - just use OpenGL, that's the easiest and most cross-platform way,
-however if you'll use on-screen keyboard (even the text input button) the OpenGL state will get
-screwed after each frame - after each SDL_Flip() you'll need to call:
-
-glEnable(GL_TEXTURE_2D);
-glBindTexture(GL_TEXTURE_2D, your_texture_id);
-glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-glEnable(GL_BLEND);
-glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-Previously I've got the code to save/restore OpenGL state, but it doens't work on every device -
-you may wish to uncomment it inside file SDL_touchscreenkeyboard.c in functions beginDrawingTex() and endDrawingTex().
+however note that on-screen keyboard (even the text input button) is also drawn using OpenGL,
+so it might mess up your GL state (although it should not do that due to recent code changes).
 
 If you don't use on-screen keyboard you don't need to reinit OpenGL state - set following in AndroidAppSettings.cfg:
 AppNeedsArrowKeys=n
 AppNeedsTextInput=n
 AppTouchscreenKeyboardKeysAmount=0
 
-SDL supports HW acceleration, however it has many limitations:
+SDL 1.2 supports HW acceleration, however it has many limitations:
 You should use 16-bit color depth.
 You cannot blit SW surface to screen, it should be only HW surface.
 You can use colorkey, per-surface alpha and per-pixel alpha with HW surfaces.
@@ -170,6 +160,8 @@ SDL_BlitSurface(SDL_GetVideoSurface(), sourceRect, sprite, &targetRect);
 
 // ----- End of example
 
+To get HW acceleration in SDL 1.3/2.0 just follow the instructions on libsdl.org
+
 If you'll add new libs - add them to project/jni/, copy Android.mk from existing lib, and
 add libname to project/jni/<yourapp>/Android.mk
 Also you'll need to move all include files to <libname>/include dir.
@@ -182,6 +174,15 @@ http://www.libsdl.org/projects/mixer/timidity/timidity.tar.gz
 unpack it and put "timidity" dir into your game data zipfile.
 Or you may paste this URL directly as an optional download in ChangeAppSettings.sh:
 MIDI music support (18 Mb)|http://sourceforge.net/projects/libsdl-android/files/timidity.zip/download
+
+SDL by default listens to the Volume Up and Volume Down hardware keys, and sends them to the application,
+instead of changing volume. Most users expect those keys to actually change volume, instead of performing some in-game action.
+To make SDL ignore those keys, and let the Android framework handle them instead, set
+RedefinedKeys="XXX YYY NO_REMAP NO_REMAP ZZZ BBB CCC" inside AndroidAppSettings.cfg, that is,
+the third and fourth keycode should be a special value "NO_REMAP" instead of SDL keycode.
+XXX, YYY and ZZZ are placeholders for SDL keycodes of other hardware keys -
+XXX is sent when user touches the screen and app is not using mouse or multitouch,
+YYY is for DPAD_CENTER/SEARCH keys, ZZZ is for MENU key, BBB is for BACK key, CCC is for CAMERA key.
 
 The ARM architecture has some limitations which you have to be aware about -
 if you'll access integer that's not 4-byte aligned you'll get garbage instead of correct value,
@@ -229,11 +230,11 @@ SDL_ANDROID_SetApplicationPutToBackgroundCallback( callback_t appPutToBackground
 where callback_t is function pointer of type "void (*) void".
 The default callbacks will call another Android-specific functions:
 SDL_ANDROID_PauseAudioPlayback() and SDL_ANDROID_ResumeAudioPlayback()
-which will pause and resume audio from HW layer, so appplication does not need to destroy and re-init audio.
+which will pause and resume audio from HW layer, so appplication does not need to destroy and re-init audio,
+and in general you don't need to redefine those functions, unless you want to play audio in background.
 Also, the usual event SDL_ACTIVEEVENT with flag SDL_APPACTIVE will be sent when that happens,
 and also SDL_VIDEORESIZE event will be sent (the same behavior as in MacOsX SDL implementation).
-If you're using OpenAL for an audio playback you have to call functions al_android_pause_playback()
-and al_android_resume_playback() by yourself when SDL calls your callbacks.
+If you're using OpenAL it will be paused automatically when your app goes to background.
 
 If you're using pure SDL 1.2 API (with or without HW acceleration) you don't need to worry about anything -
 the SDL itself will re-create GL textures and fill them with pixel data from existing SDL HW surfaces,
@@ -379,3 +380,4 @@ using them, otherwise you'll have to release your whole application sources unde
 
 The "Ultimate Droid" on-screen keyboard theme by Sean Stieber is licensed under Creative Commons - Attribution license.
 The "Simple Theme" on-screen keyboard theme by Dmitry Matveev is licensed under zlib license.
+The "Sun" on-screen keyboard theme by Sirea (Martina Smejkalova) is licensed under Creative Commons - Attribution license.

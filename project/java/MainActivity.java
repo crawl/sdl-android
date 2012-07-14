@@ -48,6 +48,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.view.View.OnKeyListener;
 import android.view.MenuItem;
+import android.view.Menu;
 import android.text.method.TextKeyListener;
 import java.util.LinkedList;
 import java.io.SequenceInputStream;
@@ -71,11 +72,15 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Message;
 import android.graphics.PixelFormat;
+import java.util.concurrent.Semaphore;
+import android.content.pm.ActivityInfo;
 
 public class MainActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		setRequestedOrientation(Globals.HorizontalOrientation ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
 		instance = this;
 		// fullscreen mode
@@ -133,28 +138,45 @@ public class MainActivity extends Activity {
 		
 		setContentView(_videoLayout);
 
-		if(mAudioThread == null) // Starting from background (should not happen)
+		class Callback implements Runnable
 		{
-			System.out.println("libSDL: Loading libraries");
-			LoadLibraries();
-			mAudioThread = new AudioThread(this);
-			System.out.println("libSDL: Loading settings");
-			Settings.Load(this);
-			if(!Globals.CompatibilityHacksStaticInit)
-				LoadApplicationLibrary(this);
-		}
-
-		if( !Settings.settingsChanged )
-		{
-			System.out.println("libSDL: " + String.valueOf(Globals.StartupMenuButtonTimeout) + "-msec timeout in startup screen");
-			class Callback implements Runnable
+			MainActivity p;
+			Callback( MainActivity _p ) { p = _p; }
+			public void run()
 			{
-				MainActivity p;
-				Callback( MainActivity _p ) { p = _p; }
-				public void run()
+				try {
+					Thread.sleep(200);
+				} catch( InterruptedException e ) {};
+
+				if(p.mAudioThread == null)
+				{
+					System.out.println("libSDL: Loading libraries");
+					p.LoadLibraries();
+					p.mAudioThread = new AudioThread(p);
+					System.out.println("libSDL: Loading settings");
+					final Semaphore loaded = new Semaphore(0);
+					class Callback2 implements Runnable
+					{
+						public MainActivity Parent;
+						public void run()
+						{
+							Settings.Load(Parent);
+							loaded.release();
+						}
+					}
+					Callback2 cb = new Callback2();
+					cb.Parent = p;
+					p.runOnUiThread(cb);
+					loaded.acquireUninterruptibly();
+					if(!Globals.CompatibilityHacksStaticInit)
+						p.LoadApplicationLibrary(p);
+				}
+
+				if( !Settings.settingsChanged )
 				{
 					if( Globals.StartupMenuButtonTimeout > 0 )
 					{
+						System.out.println("libSDL: " + String.valueOf(Globals.StartupMenuButtonTimeout) + "-msec timeout in startup screen");
 						try {
 							Thread.sleep(Globals.StartupMenuButtonTimeout);
 						} catch( InterruptedException e ) {};
@@ -164,11 +186,9 @@ public class MainActivity extends Activity {
 					System.out.println("libSDL: Timeout reached in startup screen, process with downloader");
 					p.startDownloader();
 				}
-			};
-			Thread changeConfigAlertThread = null;
-			changeConfigAlertThread = new Thread(new Callback(this));
-			changeConfigAlertThread.start();
-		}
+			}
+		};
+		(new Thread(new Callback(this))).start();
 	}
 	
 	public void setUpStatusLabel()
@@ -236,8 +256,10 @@ public class MainActivity extends Activity {
 
 	@Override
 	protected void onPause() {
-		if( downloader != null ) {
-			synchronized( downloader ) {
+		if( downloader != null )
+		{
+			synchronized( downloader )
+			{
 				downloader.setStatusField(null);
 			}
 		}
@@ -251,10 +273,16 @@ public class MainActivity extends Activity {
 	protected void onResume() {
 		super.onResume();
 		if( mGLView != null )
+		{
 			mGLView.onResume();
+			DimSystemStatusBar.get().dim(_videoLayout);
+			DimSystemStatusBar.get().dim(mGLView);
+		}
 		else
-		if( downloader != null ) {
-			synchronized( downloader ) {
+		if( downloader != null )
+		{
+			synchronized( downloader )
+			{
 				downloader.setStatusField(_tv);
 				if( downloader.DownloadComplete )
 					initSDL();
@@ -271,8 +299,10 @@ public class MainActivity extends Activity {
 	@Override
 	protected void onDestroy() 
 	{
-		if( downloader != null ) {
-			synchronized( downloader ) {
+		if( downloader != null )
+		{
+			synchronized( downloader )
+			{
 				downloader.setStatusField(null);
 			}
 		}
@@ -284,13 +314,21 @@ public class MainActivity extends Activity {
 
 	public void showScreenKeyboard(final String oldText, boolean sendBackspace)
 	{
+		if(Globals.CompatibilityHacksTextInputEmulatesHwKeyboard)
+		{
+			_inputManager.showSoftInput(mGLView, InputMethodManager.SHOW_FORCED);
+			mGLView.setFocusable(true);
+			mGLView.setFocusableInTouchMode(true);
+			mGLView.requestFocus();
+			return;
+		}
 		if(_screenKeyboard != null)
 			return;
-		class myKeyListener implements OnKeyListener
+		class simpleKeyListener implements OnKeyListener
 		{
 			MainActivity _parent;
 			boolean sendBackspace;
-			myKeyListener(MainActivity parent, boolean sendBackspace) { _parent = parent; this.sendBackspace = sendBackspace; };
+			simpleKeyListener(MainActivity parent, boolean sendBackspace) { _parent = parent; this.sendBackspace = sendBackspace; };
 			public boolean onKey(View v, int keyCode, KeyEvent event) 
 			{
 				if ((event.getAction() == KeyEvent.ACTION_UP) && ((keyCode == KeyEvent.KEYCODE_ENTER) || (keyCode == KeyEvent.KEYCODE_BACK)))
@@ -314,7 +352,7 @@ public class MainActivity extends Activity {
 		_screenKeyboard.setInputType( InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS ); // CW: also suggested: InputType.TYPE_TEXT_VARIATION_FILTER. this should also go in layout.xml somewhere
 		_screenKeyboard.setImeOptions( EditorInfo.IME_ACTION_SEND ); // CW: make it say "Send" instead of "Next"
 		_videoLayout.addView(_screenKeyboard);
-		_screenKeyboard.setOnKeyListener(new myKeyListener(this, sendBackspace));
+		_screenKeyboard.setOnKeyListener(new simpleKeyListener(this, sendBackspace));
 		_screenKeyboard.setHint(R.string.text_edit_click_here);
 		_screenKeyboard.setText(oldText);
 		_screenKeyboard.setKeyListener(new TextKeyListener(TextKeyListener.Capitalize.NONE, false));
@@ -364,7 +402,7 @@ public class MainActivity extends Activity {
 			if( downloader.DownloadFailed )
 				System.exit(1);
 			if( !downloader.DownloadComplete )
-			 onStop();
+				onStop();
 		}
 		else
 		if( keyListener != null )
@@ -384,27 +422,58 @@ public class MainActivity extends Activity {
 		{
 			if( mGLView.nativeKey( keyCode, 0, 0 ) == 0 )
 				return super.onKeyUp(keyCode, event);
+			if( keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_MENU )
+			{
+				DimSystemStatusBar.get().dim(_videoLayout);
+				DimSystemStatusBar.get().dim(mGLView);
+			}
 		}
 		return true;
 	}
 
-	// Action bar support for Android 3.X, there are reports that on-screen overlay buttons do not send button events on Galaxy Nexus S, however in emulator everything works.
+	// Action bar support for Android 3+, which replaces the Menu button, however in emulator everything works, because it's broken
+	// Also this does not work, because that action bar thingie is NOT shown for fullscreen apps, so we're targetting the legacy compatibility mode here
+	/*
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item)
 	{
-		System.out.println("libSDL: onOptionsItemSelected: MenuItem ID " + item.getItemId() + " TODO: translate this ID into keypress event. It is reported that Samsung Droid X with ICS does NOT send a proper keyevent when you press Back on the action bar, it should send this event instead.");
-		switch (item.getItemId())
+		if( mGLView != null )
 		{
-			case android.R.id.home:
-			return true;
-			default:
-			return super.onOptionsItemSelected(item);
+			if(item.getItemId() == 2)
+			{
+				mGLView.nativeKey( KeyEvent.KEYCODE_SEARCH, 1 );
+				mGLView.nativeKey( KeyEvent.KEYCODE_SEARCH, 0 );
+			}
+			else
+			{
+				mGLView.nativeKey( KeyEvent.KEYCODE_MENU, 1 );
+				mGLView.nativeKey( KeyEvent.KEYCODE_MENU, 0 );
+			}
 		}
+		else
+		if( keyListener != null )
+		{
+			if(item.getItemId() == 2)
+				keyListener.onKeyEvent(KeyEvent.KEYCODE_SEARCH);
+			else
+				keyListener.onKeyEvent(KeyEvent.KEYCODE_MENU);
+		}
+		return true;
 	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		super.onCreateOptionsMenu(menu);
+		menu.add(0, 1, 0, "Menu");
+		menu.add(0, 2, 0, "Search");
+		return true;
+	}
+	*/
 
 	@Override
 	public boolean dispatchTouchEvent(final MotionEvent ev)
 	{
+		//System.out.println("dispatchTouchEvent: " + ev.getAction() + " coords " + ev.getX() + ":" + ev.getY() );
 		if(_screenKeyboard != null)
 			_screenKeyboard.dispatchTouchEvent(ev);
 		else
@@ -422,6 +491,7 @@ public class MainActivity extends Activity {
 	@Override
 	public boolean dispatchGenericMotionEvent (MotionEvent ev)
 	{
+		//System.out.println("dispatchGenericMotionEvent: " + ev.getAction() + " coords " + ev.getX() + ":" + ev.getY() );
 		// This code fails to run for Android 1.6, so there will be no generic motion event for Andorid screen keyboard
 		/*
 		if(_screenKeyboard != null)
@@ -507,8 +577,7 @@ public class MainActivity extends Activity {
 				}
 				catch( UnsatisfiedLinkError e )
 				{
-					System.out.println(e.getMessage());
-					e.printStackTrace();
+					System.out.println("libSDL: error loading lib " + l + ": " + e.toString());
 					System.loadLibrary(l);
 				}
 			}
@@ -786,43 +855,13 @@ abstract class DimSystemStatusBar
 		}
 	    public void dim(final View view)
 	    {
-	      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB) {
-	         System.out.println("Dimming system status bar for Honeycomb");
-	         setLowProfileMode(view);
-	         // This part of code generates lot of debug messages on emulator: "V/PhoneStatusBar(  133): setLightsOn(true)"
-	         /*
-	         view.setOnSystemUiVisibilityChangeListener(
-	               new View.OnSystemUiVisibilityChangeListener() {
-	                  public void onSystemUiVisibilityChange(int visibility) {
-	                        android.os.Handler handler = new Handler() {
-	                           @Override
-	                           public void handleMessage(Message msg) {
-	                              if(msg.what == 10) {
-	                                 setLowProfileMode(view);
-	                              }
-	                           }
-	                        };
-	                        Message msg = handler.obtainMessage(10);
-	                        handler.sendMessageDelayed(msg,1000);
-	                   }
-	               }
-	         );
-	         */
-	      }
-	   }
-	   // *** HONEYCOMB / ICS FIX FOR FULLSCREEN MODE ***
-	   private void setLowProfileMode(final View view)
-	   {
-	       if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB) {
-	         int hiddenStatusCode = android.view.View.STATUS_BAR_HIDDEN;
 	         /*
 	         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 	            // ICS has the same constant redefined with a different name.
 	            hiddenStatusCode = android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE;
 	         }
 	         */
-	         view.setSystemUiVisibility(hiddenStatusCode);
-	      }
+	         view.setSystemUiVisibility(android.view.View.STATUS_BAR_HIDDEN);
 	   }
 	}
 	private static class DimSystemStatusBarDummy extends DimSystemStatusBar

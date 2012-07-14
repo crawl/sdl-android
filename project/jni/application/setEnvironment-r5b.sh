@@ -16,6 +16,7 @@ fi
 
 NDK=`which ndk-build`
 NDK=`dirname $NDK`
+NDK=`readlink -f $NDK`
 
 #echo NDK $NDK
 GCCPREFIX=arm-linux-androideabi
@@ -60,7 +61,7 @@ CFLAGS="\
 -isystem$NDK/sources/cxx-stl/gnu-libstdc++/libs/armeabi/include \
 -isystem$LOCAL_PATH/../sdl-1.2/include \
 `echo $APP_MODULES | sed \"s@\([-a-zA-Z0-9_.]\+\)@-isystem$LOCAL_PATH/../\1/include@g\"` \
-$MISSING_INCLUDE"
+$MISSING_INCLUDE $CFLAGS"
 
 SHARED="-shared -Wl,-soname,libapplication.so"
 if [ -n "$BUILD_EXECUTABLE" ]; then
@@ -86,7 +87,7 @@ $NDK/platforms/$PLATFORMVER/arch-arm/usr/lib/libz.so \
 -L$NDK/platforms/$PLATFORMVER/arch-arm/usr/lib \
 -L$LOCAL_PATH/../../obj/local/armeabi -Wl,--no-undefined -Wl,-z,noexecstack \
 -Wl,-rpath-link=$NDK/platforms/$PLATFORMVER/arch-arm/usr/lib -lsupc++ \
-$MISSING_LIB"
+$MISSING_LIB $LDFLAGS"
 
 #echo env CFLAGS=\""$CFLAGS"\" LDFLAGS=\""$LDFLAGS"\" "$@"
 

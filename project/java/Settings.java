@@ -198,6 +198,16 @@ class Settings
 		for( int i = 0; i < Globals.MultitouchGesturesUsed.length; i++ )
 			Globals.MultitouchGesturesUsed[i] = true;
 
+		System.out.println("android.os.Build.MODEL: " + android.os.Build.MODEL);
+		if( (android.os.Build.MODEL.equals("GT-N7000") || android.os.Build.MODEL.equals("SGH-I717"))
+			&& android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.GINGERBREAD_MR1 )
+		{
+			// Samsung Galaxy Note generates a keypress when you hover a stylus over the screen, and that messes up OpenTTD dialogs
+			// ICS update sends events in a proper way
+			Globals.RemapHwKeycode[112] = SDL_1_2_Keycodes.SDLK_UNKNOWN;
+		}
+		
+
 		try {
 			ObjectInputStream settingsFile = new ObjectInputStream(new FileInputStream( p.getFilesDir().getAbsolutePath() + "/" + SettingsFileName ));
 			if( settingsFile.readInt() != SETTINGS_FILE_VERSION )
@@ -416,65 +426,6 @@ class Settings
 	public static void showConfig(final MainActivity p, final boolean firstStart)
 	{
 		settingsChanged = true;
-		if( !Globals.BrokenLibCMessageShown )
-		{
-			Globals.BrokenLibCMessageShown = true;
-			try {
-				InputStream in = p.getAssets().open("stdout-test");
-				File outDir = p.getFilesDir();
-				try {
-					outDir.mkdirs();
-				} catch( SecurityException ee ) { };
-				
-				byte[] buf = new byte[16384];
-				OutputStream out = null;
-				String path = outDir.getAbsolutePath() + "/" + "stdout-test";
-
-				out = new FileOutputStream( path );
-				int len = in.read(buf);
-				while (len >= 0)
-				{
-					if(len > 0)
-						out.write(buf, 0, len);
-					len = in.read(buf);
-				}
-
-				out.flush();
-				out.close();
-				Settings.nativeChmod(path, 0755);
-				if( (new ProcessBuilder().command(path).start()).waitFor() != 42 )
-				{
-					System.out.println("libSDL: stdout-test FAILED, your libc is broken");
-					AlertDialog.Builder builder = new AlertDialog.Builder(p);
-					builder.setTitle(p.getResources().getString(R.string.broken_libc_title));
-					builder.setMessage(p.getResources().getString(R.string.broken_libc_text));
-					builder.setPositiveButton(p.getResources().getString(R.string.ok), new DialogInterface.OnClickListener()
-					{
-						public void onClick(DialogInterface dialog, int item) 
-						{
-							dialog.dismiss();
-							showConfig(p, firstStart);
-						}
-					});
-					builder.setOnCancelListener(new DialogInterface.OnCancelListener()
-					{
-						public void onCancel(DialogInterface dialog)
-						{
-							dialog.dismiss();
-							showConfig(p, firstStart);
-						}
-					});
-					AlertDialog alert = builder.create();
-					alert.setOwnerActivity(p);
-					alert.show();
-					return;
-				}
-				System.out.println("libSDL: stdout-test passed, your libc seems to be good");
-			} catch ( Exception eeee ) {
-				System.out.println("libSDL: Cannot run stdout-test: " + eeee.toString());
-			}
-		}
-
 		if( Globals.OptionalDataDownload == null )
 		{
 			String downloads[] = Globals.DataDownloadUrl.split("\\^");
@@ -1068,7 +1019,8 @@ class Settings
 		{
 			final CharSequence[] items = {
 				p.getResources().getString(R.string.controls_screenkb_by, "Ultimate Droid", "Sean Stieber"),
-				p.getResources().getString(R.string.controls_screenkb_by, "Simple Theme", "Beholder")
+				p.getResources().getString(R.string.controls_screenkb_by, "Simple Theme", "Beholder"),
+				p.getResources().getString(R.string.controls_screenkb_by, "Sun", "Sirea")
 				};
 
 			AlertDialog.Builder builder = new AlertDialog.Builder(p);
@@ -2265,7 +2217,7 @@ class Settings
 			void setupButton(boolean undo)
 			{
 				do {
-					currentButton += undo ? -1 : 1;
+					currentButton += (undo ? -1 : 1);
 					if(currentButton >= Globals.ScreenKbControlsLayout.length)
 					{
 						p.getVideoLayout().removeView(layout);
@@ -2301,6 +2253,11 @@ class Settings
 
 			public void onTouchEvent(final MotionEvent ev)
 			{
+				if(Globals.ScreenKbControlsLayout.length >= currentButton)
+				{
+					setupButton(false);
+					return;
+				}
 				if( ev.getAction() == MotionEvent.ACTION_DOWN )
 				{
 					Globals.ScreenKbControlsLayout[currentButton][0] = (int)ev.getX();
@@ -2534,22 +2491,29 @@ class Settings
 		// TODO: get current user name and set envvar USER, the API is not availalbe on Android 1.6 so I don't bother with this
 	}
 
-	static byte [] loadRaw(Activity p,int res)
+	static byte [] loadRaw(Activity p, int res)
 	{
 		byte [] buf = new byte[65536 * 2];
-		byte [] a = new byte[0];
+		byte [] a = new byte[65536 * 4 * 10]; // We need 2363516 bytes for the Sun theme
+		int written = 0;
 		try{
 			InputStream is = new GZIPInputStream(p.getResources().openRawResource(res));
 			int readed = 0;
 			while( (readed = is.read(buf)) >= 0 )
 			{
-				byte [] b = new byte [a.length + readed];
-				System.arraycopy(a, 0, b, 0, a.length);
-				System.arraycopy(buf, 0, b, a.length, readed);
-				a = b;
+				if( written + readed > a.length )
+				{
+					byte [] b = new byte [written + readed];
+					System.arraycopy(a, 0, b, 0, written);
+					a = b;
+				}
+				System.arraycopy(buf, 0, a, written, readed);
+				written += readed;
 			}
 		} catch(Exception e) {};
-		return a;
+		byte [] b = new byte [written];
+		System.arraycopy(a, 0, b, 0, written);
+		return b;
 	}
 	
 	static void SetupTouchscreenKeyboardGraphics(Activity p)
@@ -2558,8 +2522,8 @@ class Settings
 		{
 			if(Globals.TouchscreenKeyboardTheme < 0)
 				Globals.TouchscreenKeyboardTheme = 0;
-			if(Globals.TouchscreenKeyboardTheme > 1)
-				Globals.TouchscreenKeyboardTheme = 1;
+			if(Globals.TouchscreenKeyboardTheme > 2)
+				Globals.TouchscreenKeyboardTheme = 2;
 
 			if( Globals.TouchscreenKeyboardTheme == 0 )
 			{
@@ -2568,6 +2532,10 @@ class Settings
 			if( Globals.TouchscreenKeyboardTheme == 1 )
 			{
 				nativeSetupScreenKeyboardButtons(loadRaw(p, R.raw.simpletheme));
+			}
+			if( Globals.TouchscreenKeyboardTheme == 2 )
+			{
+				nativeSetupScreenKeyboardButtons(loadRaw(p, R.raw.sun));
 			}
 		}
 	}
@@ -2582,7 +2550,6 @@ class Settings
 													int leftClickTimeout, int rightClickTimeout,
 													int relativeMovement, int relativeMovementSpeed,
 													int relativeMovementAccel, int showMouseCursor);
-	public static native void nativeSetExternalMouseDetected();
 	private static native void nativeSetJoystickUsed();
 	private static native void nativeSetMultitouchUsed();
 	private static native void nativeSetTouchscreenKeyboardUsed();
