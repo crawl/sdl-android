@@ -333,6 +333,11 @@ public class MainActivity extends Activity {
 			{
 				if ((event.getAction() == KeyEvent.ACTION_UP) && ((keyCode == KeyEvent.KEYCODE_ENTER) || (keyCode == KeyEvent.KEYCODE_BACK)))
 				{
+                    if(keyCode == KeyEvent.KEYCODE_ENTER)
+                    {
+                        // CW: include LF if enter key was pressed
+                        _screenKeyboard.append("\n");
+                    }
 					_parent.hideScreenKeyboard();
 					return true;
 				}
