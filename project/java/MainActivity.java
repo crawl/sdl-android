@@ -355,7 +355,7 @@ public class MainActivity extends Activity {
 		_screenKeyboard.setBackgroundColor(Color.TRANSPARENT); // CW: change the text input's background colour to transparent so that it blends better with the native app
 		_screenKeyboard.setTextColor(Color.WHITE); // CW: white text on blackish -- this should probably be done using styles  :(
 		_screenKeyboard.setInputType( InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS ); // CW: also suggested: InputType.TYPE_TEXT_VARIATION_FILTER. this should also go in layout.xml somewhere
-		_screenKeyboard.setImeActionLabel( "Enter", EditorInfo.IME_ACTION_UNSPECIFIED ); // CW: make it say "Enter" instead of "Next"
+		_screenKeyboard.setImeOptions( EditorInfo.IME_ACTION_SEND ); // CW: make it say "Send" instead of "Next"
 		_videoLayout.addView(_screenKeyboard);
 		_screenKeyboard.setOnKeyListener(new simpleKeyListener(this, sendBackspace));
 		_screenKeyboard.setHint(R.string.text_edit_click_here);
