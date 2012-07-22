@@ -333,9 +333,9 @@ public class MainActivity extends Activity {
 			{
 				if ((event.getAction() == KeyEvent.ACTION_UP) && ((keyCode == KeyEvent.KEYCODE_ENTER) || (keyCode == KeyEvent.KEYCODE_BACK)))
 				{
-                    if(keyCode == KeyEvent.KEYCODE_ENTER)
+                    if(keyCode == KeyEvent.KEYCODE_ENTER && _screenKeyboard.getText().length()==0)
                     {
-                        // CW: include LF if enter key was pressed
+                        // CW: include LF if enter key was pressed by itself
                         _screenKeyboard.append("\n");
                     }
 					_parent.hideScreenKeyboard();
