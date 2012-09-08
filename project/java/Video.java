@@ -662,8 +662,7 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 			{
 				try
 				{
-                    // CW: was 300L, which I worry was interfering with hold-for-rclick behaviour
-					mRenderer.wait(150L); // And sometimes the app decides not to render at all, so this timeout should not be big.
+					mRenderer.wait(300L); // And sometimes the app decides not to render at all, so this timeout should not be big.
 				} catch (InterruptedException e) { }
 			}
 		}
