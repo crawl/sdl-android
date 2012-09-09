@@ -1,6 +1,6 @@
 /*
 Simple DirectMedia Layer
-Java source code (C) 2009-2011 Sergii Pylypenko
+Java source code (C) 2009-2012 Sergii Pylypenko
   
 This software is provided 'as-is', without any express or implied
 warranty.  In no event will the authors be held liable for any damages
@@ -49,6 +49,7 @@ import android.content.Intent;
 import android.view.View.OnKeyListener;
 import android.view.MenuItem;
 import android.view.Menu;
+import android.view.Gravity;
 import android.text.method.TextKeyListener;
 import java.util.LinkedList;
 import java.io.SequenceInputStream;
@@ -75,9 +76,11 @@ import android.graphics.PixelFormat;
 import java.util.concurrent.Semaphore;
 import android.content.pm.ActivityInfo;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity
+{
 	@Override
-	protected void onCreate(Bundle savedInstanceState) {
+	protected void onCreate(Bundle savedInstanceState)
+	{
 		super.onCreate(savedInstanceState);
 
 		setRequestedOrientation(Globals.HorizontalOrientation ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -95,12 +98,12 @@ public class MainActivity extends Activity {
 		System.out.println("libSDL: Creating startup screen");
 		_layout = new LinearLayout(this);
 		_layout.setOrientation(LinearLayout.VERTICAL);
-		_layout.setLayoutParams(new LinearLayout.LayoutParams( ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
+		_layout.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
 		_layout2 = new LinearLayout(this);
-		_layout2.setLayoutParams(new LinearLayout.LayoutParams( ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+		_layout2.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
 		_btn = new Button(this);
-		_btn.setLayoutParams(new ViewGroup.LayoutParams( ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+		_btn.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 		_btn.setText(getResources().getString(R.string.device_change_cfg));
 		class onClickListener implements View.OnClickListener
 		{
@@ -130,11 +133,20 @@ public class MainActivity extends Activity {
 		{
 			img.setImageResource(R.drawable.publisherlogo);
 		}
-		img.setLayoutParams(new ViewGroup.LayoutParams( ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
+		img.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
 		_layout.addView(img);
 		
 		_videoLayout = new FrameLayout(this);
 		_videoLayout.addView(_layout);
+
+		_ad = new Advertisement(this);
+		if( _ad.getView() != null )
+		{
+			_videoLayout.addView(_ad.getView());
+			_ad.getView().setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.RIGHT));
+			_ad.getView().setFocusable(true);
+			_ad.getView().setFocusableInTouchMode(true);
+		}
 		
 		setContentView(_videoLayout);
 
@@ -237,6 +249,8 @@ public class MainActivity extends Activity {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
 					WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		_videoLayout.removeView(_layout);
+		if( _ad.getView() != null )
+			_videoLayout.removeView(_ad.getView());
 		_layout = null;
 		_layout2 = null;
 		_btn = null;
@@ -246,10 +260,18 @@ public class MainActivity extends Activity {
 		setContentView(_videoLayout);
 		mGLView = new DemoGLSurfaceView(this);
 		_videoLayout.addView(mGLView);
-		// Receive keyboard events
 		mGLView.setFocusableInTouchMode(true);
 		mGLView.setFocusable(true);
 		mGLView.requestFocus();
+		if( _ad.getView() != null )
+		{
+			_videoLayout.addView(_ad.getView());
+			_ad.getView().setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.RIGHT));
+			_ad.getView().setFocusable(true);
+			_ad.getView().setFocusableInTouchMode(true);
+			_ad.getView().requestFocus();
+		}
+		// Receive keyboard events
 		DimSystemStatusBar.get().dim(_videoLayout);
 		DimSystemStatusBar.get().dim(mGLView);
 	}
@@ -266,6 +288,8 @@ public class MainActivity extends Activity {
 		_isPaused = true;
 		if( mGLView != null )
 			mGLView.onPause();
+		//if( _ad.getView() != null )
+		//	_ad.getView().onPause();
 		super.onPause();
 	}
 
@@ -288,7 +312,27 @@ public class MainActivity extends Activity {
 					initSDL();
 			}
 		}
+		//if( _ad.getView() != null )
+		//	_ad.getView().onResume();
 		_isPaused = false;
+	}
+
+	@Override
+	public void onWindowFocusChanged (boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		System.out.println("libSDL: onWindowFocusChanged: " + hasFocus + " - sending onPause/onResume");
+		if (hasFocus == false)
+			onPause();
+		else
+			onResume();
+		/*
+		if (hasFocus == false) {
+			synchronized(textInput) {
+				// Send 'SDLK_PAUSE' (to enter pause mode) to native code:
+				DemoRenderer.nativeTextInput( 19, 19 );
+			}
+		}
+		*/
 	}
 	
 	public boolean isPaused()
@@ -297,7 +341,7 @@ public class MainActivity extends Activity {
 	}
 
 	@Override
-	protected void onDestroy() 
+	protected void onDestroy()
 	{
 		if( downloader != null )
 		{
@@ -312,14 +356,17 @@ public class MainActivity extends Activity {
 		System.exit(0);
 	}
 
+	public void showScreenKeyboardWithoutTextInputField()
+	{
+		_inputManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
+		_inputManager.showSoftInput(mGLView, InputMethodManager.SHOW_FORCED);
+	}
+
 	public void showScreenKeyboard(final String oldText, boolean sendBackspace)
 	{
 		if(Globals.CompatibilityHacksTextInputEmulatesHwKeyboard)
 		{
-			_inputManager.showSoftInput(mGLView, InputMethodManager.SHOW_FORCED);
-			mGLView.setFocusable(true);
-			mGLView.setFocusableInTouchMode(true);
-			mGLView.requestFocus();
+			showScreenKeyboardWithoutTextInputField();
 			return;
 		}
 		if(_screenKeyboard != null)
@@ -389,6 +436,57 @@ public class MainActivity extends Activity {
 		mGLView.requestFocus();
 	};
 
+	public void setAdvertisementPosition(int left, int top)
+	{
+		
+		if( _ad.getView() != null )
+		{
+			final FrameLayout.LayoutParams layout = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT);
+			layout.leftMargin = left;
+			layout.topMargin = top;
+			class Callback implements Runnable
+			{
+				public void run()
+				{
+					_ad.getView().setLayoutParams(layout);
+				}
+			};
+			runOnUiThread(new Callback());
+		}
+	}
+	public void setAdvertisementVisible(final int visible)
+	{
+		if( _ad.getView() != null )
+		{
+			class Callback implements Runnable
+			{
+				public void run()
+				{
+					if( visible == 0 )
+						_ad.getView().setVisibility(View.GONE);
+					else
+						_ad.getView().setVisibility(View.VISIBLE);
+				}
+			}
+			runOnUiThread(new Callback());
+		}
+	}
+
+	public void getAdvertisementParams(int params[])
+	{
+		for( int i = 0; i < 5; i++ )
+			params[i] = 0;
+		if( _ad.getView() != null )
+		{
+			params[0] = (_ad.getView().getVisibility() == View.VISIBLE) ? 1 : 0;
+			FrameLayout.LayoutParams layout = (FrameLayout.LayoutParams) _ad.getView().getLayoutParams();
+			params[1] = layout.leftMargin;
+			params[2] = layout.topMargin;
+			params[3] = _ad.getView().getMeasuredWidth();
+			params[4] = _ad.getView().getMeasuredHeight();
+		}
+	}
+
 	@Override
 	public boolean onKeyDown(int keyCode, final KeyEvent event)
 	{
@@ -436,51 +534,21 @@ public class MainActivity extends Activity {
 		return true;
 	}
 
-	// Action bar support for Android 3+, which replaces the Menu button, however in emulator everything works, because it's broken
-	// Also this does not work, because that action bar thingie is NOT shown for fullscreen apps, so we're targetting the legacy compatibility mode here
-	/*
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item)
-	{
-		if( mGLView != null )
-		{
-			if(item.getItemId() == 2)
-			{
-				mGLView.nativeKey( KeyEvent.KEYCODE_SEARCH, 1 );
-				mGLView.nativeKey( KeyEvent.KEYCODE_SEARCH, 0 );
-			}
-			else
-			{
-				mGLView.nativeKey( KeyEvent.KEYCODE_MENU, 1 );
-				mGLView.nativeKey( KeyEvent.KEYCODE_MENU, 0 );
-			}
-		}
-		else
-		if( keyListener != null )
-		{
-			if(item.getItemId() == 2)
-				keyListener.onKeyEvent(KeyEvent.KEYCODE_SEARCH);
-			else
-				keyListener.onKeyEvent(KeyEvent.KEYCODE_MENU);
-		}
-		return true;
-	}
-
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		super.onCreateOptionsMenu(menu);
-		menu.add(0, 1, 0, "Menu");
-		menu.add(0, 2, 0, "Search");
-		return true;
-	}
-	*/
-
 	@Override
 	public boolean dispatchTouchEvent(final MotionEvent ev)
 	{
 		//System.out.println("dispatchTouchEvent: " + ev.getAction() + " coords " + ev.getX() + ":" + ev.getY() );
 		if(_screenKeyboard != null)
 			_screenKeyboard.dispatchTouchEvent(ev);
+		else
+		if( _ad.getView() != null && // User clicked the advertisement, ignore when user moved finger from game screen to advertisement or touches screen with several fingers
+			((ev.getAction() & MotionEvent.ACTION_MASK) == MotionEvent.ACTION_DOWN ||
+			(ev.getAction() & MotionEvent.ACTION_MASK) == MotionEvent.ACTION_UP) &&
+			_ad.getView().getLeft() <= (int)ev.getX() &&
+			_ad.getView().getRight() > (int)ev.getX() &&
+			_ad.getView().getTop() <= (int)ev.getY() &&
+			_ad.getView().getBottom() > (int)ev.getY() )
+			return super.dispatchTouchEvent(ev);
 		else
 		if(mGLView != null)
 			mGLView.onTouchEvent(ev);
@@ -827,6 +895,7 @@ public class MainActivity extends Activity {
 	private Button _btn = null;
 	private LinearLayout _layout = null;
 	private LinearLayout _layout2 = null;
+	private Advertisement _ad = null;
 
 	private FrameLayout _videoLayout = null;
 	private EditText _screenKeyboard = null;

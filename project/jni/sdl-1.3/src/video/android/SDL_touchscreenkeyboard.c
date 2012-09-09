@@ -105,7 +105,7 @@ static struct ScreenKbGlState_t
 	GLboolean texture2d;
 	GLuint textureId;
 	GLfloat color[4];
-	GLfloat texEnvMode;
+	GLint texEnvMode;
 	GLboolean blend;
 	GLenum blend1, blend2;
 	GLint texFilter1, texFilter2;
@@ -115,19 +115,32 @@ oldGlState;
 static inline void beginDrawingTex()
 {
 	// Save OpenGL state
-	// TODO: this code does not work on 1.6 emulator, and on some older devices
-    /*
+	glGetError(); // Clear error flag
+	// This code does not work on 1.6 emulator, and on some older devices
+	// However GLES 1.1 spec defines all theese values, so it's a device fault for not implementing them
 	oldGlState.texture2d = glIsEnabled(GL_TEXTURE_2D);
 	glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldGlState.textureId);
 	glGetFloatv(GL_CURRENT_COLOR, &(oldGlState.color[0]));
-	glGetTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &oldGlState.texEnvMode);
+	glGetTexEnviv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &oldGlState.texEnvMode);
 	oldGlState.blend = glIsEnabled(GL_BLEND);
 	glGetIntegerv(GL_BLEND_SRC, &oldGlState.blend1);
 	glGetIntegerv(GL_BLEND_DST, &oldGlState.blend2);
 	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &oldGlState.texFilter1);
 	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, &oldGlState.texFilter2);
 	// It's very unlikely that some app will use GL_TEXTURE_CROP_RECT_OES, so just skip it
-    */
+	if( glGetError() != GL_NO_ERROR )
+	{
+		// Make the video somehow work on emulator
+		oldGlState.texture2d = GL_FALSE;
+		oldGlState.textureId = 0;
+		oldGlState.texEnvMode = GL_MODULATE;
+		oldGlState.blend = GL_FALSE;
+		oldGlState.blend1 = GL_SRC_ALPHA;
+		oldGlState.blend2 = GL_ONE_MINUS_SRC_ALPHA;
+		oldGlState.texFilter1 = GL_NEAREST;
+		oldGlState.texFilter2 = GL_NEAREST;
+	}
+
 	glEnable(GL_TEXTURE_2D);
 }
 
@@ -135,12 +148,12 @@ static inline void endDrawingTex()
 {
     /*
 	// Restore OpenGL state
-	if( oldGlState.texture2d == GL_FALSE)
+	if( oldGlState.texture2d == GL_FALSE )
 		glDisable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, oldGlState.textureId);
 	glColor4f(oldGlState.color[0], oldGlState.color[1], oldGlState.color[2], oldGlState.color[3]);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, oldGlState.texEnvMode);
-	if( oldGlState.blend == GL_FALSE)
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, oldGlState.texEnvMode);
+	if( oldGlState.blend == GL_FALSE )
 		glDisable(GL_BLEND);
 	glBlendFunc(oldGlState.blend1, oldGlState.blend2);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, oldGlState.texFilter1);
@@ -992,7 +1005,7 @@ int SDL_ANDROID_SetScreenKeyboardAutoFireButtonsAmount(int nbuttons)
 	return 1;
 };
 
-int SDL_ANDROID_GetScreenKeyboardAutoFireButtonsAmount()
+int SDL_ANDROID_GetScreenKeyboardAutoFireButtonsAmount(void)
 {
 	return AutoFireButtonsNum;
 };
@@ -1002,12 +1015,12 @@ int SDL_ANDROID_SetScreenKeyboardShown(int shown)
 	touchscreenKeyboardShown = shown;
 };
 
-int SDL_ANDROID_GetScreenKeyboardShown()
+int SDL_ANDROID_GetScreenKeyboardShown(void)
 {
 	return touchscreenKeyboardShown;
 };
 
-int SDL_ANDROID_GetScreenKeyboardSize()
+int SDL_ANDROID_GetScreenKeyboardSize(void)
 {
 	return buttonsize;
 };

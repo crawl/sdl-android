@@ -35,6 +35,13 @@ create file project/bin/DemoActivity-debug.apk and install it on your device or 
 Then you can test it by launching Ballfield icon from Android applications menu.
 It's designed for 320x240, so if you have bigger screen it will be resized.
 
+There are other applications inside project/jni/application directory,
+some of them are referenced using Git submodule mechanism, you may download them using command
+git submodule update --init
+Some of them may be outdated and won't compile, some contain only patch file and no sources,
+so you should check out Git logs before compiling some app:
+gitk project/jni/application/<directory>
+
 The game enforces horizontal screen orientation, you may slide-open your keyboard if you have it
 and use it for additional keys - the device will just keep current screen orientation.
 Recent Android phone models like HTC Evo have no keyboard at all, on-screen keyboard built into SDL
@@ -85,6 +92,11 @@ The C++ files shall have .cpp extension to be compiled, rename them if necessary
 Also you have to create an icon image file at project/res/drawable/icon.png, and you may create a file
 project/jni/application/src/AndroidData/logo.png to be used as a splash screen image.
 Then you may launch build.sh.
+
+C++ RTTI and exceptions give very slight memory overhead, if you need them -
+add "-frtti -fexceptions" to the AppCflags inside AndroidAppSettings.cfg
+If you use autoconf/automake/configure scripts with setEnvironment.sh, you may write
+env CXXFLAGS='-frtti -fexceptions' ../setEnvironment.sh ./configure
 
 Application data may be bundled with app itself, or downloaded from the internet on the first run -
 if you want to put app data inside .apk file - create a .zip archive and put it into the directory
@@ -206,6 +218,10 @@ the shared libraries will not be extracted by Android OS but by application itse
 and it will remove them from internal storage right after starting up,
 so you still need that space free, but only temporarily. 
 However your application will start up slower.
+
+SDL supports AdMob advertisements, you need to set your publisher ID inside AndroidAppSettings.cfg,
+see project test-advertisements for details.
+Also you can hide or reposition your ad from C code, check out file SDL_android.h for details.
 
 
 How to compile your own application using automake/configure scripts

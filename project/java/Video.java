@@ -1,6 +1,6 @@
 /*
 Simple DirectMedia Layer
-Java source code (C) 2009-2011 Sergii Pylypenko
+Java source code (C) 2009-2012 Sergii Pylypenko
   
 This software is provided 'as-is', without any express or implied
 warranty.  In no event will the authors be held liable for any damages
@@ -397,7 +397,6 @@ abstract class DifferentTouchInput
 		public void process(final MotionEvent event)
 		{
 			//System.out.println("Got motion event, type " + (int)(event.getAction()) + " X " + (int)event.getX() + " Y " + (int)event.getY() + " buttons " + buttonState + " source " + event.getSource());
-			super.process(event); // Push mouse coordinate first
 			int buttonStateNew = event.getButtonState();
 			if( buttonStateNew != buttonState )
 			{
@@ -408,6 +407,19 @@ abstract class DifferentTouchInput
 				}
 				buttonState = buttonStateNew;
 			}
+			super.process(event); // Push mouse coordinate first
+		}
+		public void processGenericEvent(final MotionEvent event)
+		{
+			// Process mousewheel
+			if( event.getAction() == MotionEvent.ACTION_SCROLL )
+			{
+				int scrollX = Math.round(event.getAxisValue(MotionEvent.AXIS_HSCROLL));
+				int scrollY = Math.round(event.getAxisValue(MotionEvent.AXIS_VSCROLL));
+				DemoGLSurfaceView.nativeMouseWheel(scrollX, scrollY);
+				return;
+			}
+			super.processGenericEvent(event);
 		}
 	}
 	private static class GalaxyNoteIcsTouchInput extends IcsTouchInput
@@ -512,6 +524,21 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 		return 1;
 	}
 
+	public void showScreenKeyboardWithoutTextInputField() // Called from native code
+	{
+		class Callback implements Runnable
+		{
+			public MainActivity parent;
+			public void run()
+			{
+				parent.showScreenKeyboardWithoutTextInputField();
+			}
+		}
+		Callback cb = new Callback();
+		cb.parent = context;
+		context.runOnUiThread(cb);
+	}
+
 	public void showScreenKeyboard(final String oldText, int sendBackspace) // Called from native code
 	{
 		class Callback implements Runnable
@@ -534,7 +561,20 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 	public void exitApp()
 	{
 		 nativeDone();
-	};
+	}
+
+	public void getAdvertisementParams(int params[])
+	{
+		context.getAdvertisementParams(params);
+	}
+	public void setAdvertisementVisible(int visible)
+	{
+		context.setAdvertisementVisible(visible);
+	}
+	public void setAdvertisementPosition(int left, int top)
+	{
+		context.setAdvertisementPosition(left, top);
+	}
 
 	private int PowerOf2(int i)
 	{
@@ -545,7 +585,7 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 	}
 	public void DrawLogo(GL10 gl)
 	{
-		System.out.println("libSDL: DrawLogo");
+		// TODO: this not quite works, as it seems
 		BitmapDrawable bmp = null;
 		try
 		{
@@ -618,6 +658,7 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 	private boolean mGlContextLost = false;
 	public boolean mGlSurfaceCreated = false;
 	public boolean mPaused = false;
+	//public boolean mPutToBackground = false;
 	private boolean mFirstTimeStart = true;
 	public int mWidth = 0;
 	public int mHeight = 0;
@@ -674,10 +715,12 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 
 	@Override
 	public void onPause() {
+		if(mRenderer.mPaused)
+			return;
+		mRenderer.mPaused = true;
 		if( mRenderer.accelerometer != null ) // For some reason it crashes here often - are we getting this event before initialization?
 			mRenderer.accelerometer.stop();
 		super.onPause();
-		mRenderer.mPaused = true;
 	};
 	
 	public boolean isPaused() {
@@ -686,8 +729,10 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 
 	@Override
 	public void onResume() {
-		super.onResume();
+		if(!mRenderer.mPaused)
+			return;
 		mRenderer.mPaused = false;
+		super.onResume();
 		System.out.println("libSDL: DemoGLSurfaceView.onResume(): mRenderer.mGlSurfaceCreated " + mRenderer.mGlSurfaceCreated + " mRenderer.mPaused " + mRenderer.mPaused);
 		if( mRenderer.mGlSurfaceCreated && ! mRenderer.mPaused || Globals.NonBlockingSwapBuffers )
 			mRenderer.nativeGlContextRecreated();
@@ -724,7 +769,7 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 	public static native void initJavaCallbacks();
 	public static native void nativeHardwareMouseDetected( int detected );
 	public static native void nativeMouseButtonsPressed( int buttonId, int pressedState );
-
+	public static native void nativeMouseWheel(int scrollX, int scrollY);
 }
 
 

@@ -1,6 +1,6 @@
 /*
 Simple DirectMedia Layer
-Java source code (C) 2009-2011 Sergii Pylypenko
+Java source code (C) 2009-2012 Sergii Pylypenko
   
 This software is provided 'as-is', without any express or implied
 warranty.  In no event will the authors be held liable for any damages
@@ -59,7 +59,8 @@ import java.lang.String;
 import android.text.SpannedString;
 
 
-class CountingInputStream extends BufferedInputStream {
+class CountingInputStream extends BufferedInputStream
+{
 
 	private long bytesReadMark = 0;
 	private long bytesRead = 0;
@@ -122,6 +123,9 @@ class CountingInputStream extends BufferedInputStream {
 
 class DataDownloader extends Thread
 {
+
+	public static final String DOWNLOAD_FLAG_FILENAME = "libsdl-DownloadFinished-";
+
 	class StatusWriter
 	{
 		private TextView Status;
@@ -200,7 +204,7 @@ class DataDownloader extends Thread
 				( Globals.OptionalDataDownload.length > i && Globals.OptionalDataDownload[i] ) ||
 				( Globals.OptionalDataDownload.length <= i && downloadFiles[i].indexOf("!") == 0 ) )
 			{
-				if( ! DownloadDataFile(downloadFiles[i], "libsdl-DownloadFinished-" + String.valueOf(i) + ".flag", count+1, total) )
+				if( ! DownloadDataFile(downloadFiles[i], DOWNLOAD_FLAG_FILENAME + String.valueOf(i) + ".flag", count+1, total) )
 				{
 					DownloadFailed = true;
 					return;
@@ -462,6 +466,7 @@ class DataDownloader extends Thread
 
 				OutputStream out = null;
 				path = getOutFilePath(entry.getName());
+				float percent = 0.0f;
 
 				System.out.println("Saving file '" + path + "'");
 
@@ -482,6 +487,9 @@ class DataDownloader extends Thread
 						throw new Exception();
 					}
 					System.out.println("File '" + path + "' exists and passed CRC check - not overwriting it");
+					if( totalLen > 0 )
+						percent = stream.getBytesRead() * 100.0f / totalLen;
+					Status.setText( downloadCount + "/" + downloadTotal + ": " + res.getString(R.string.dl_progress, percent, path) );
 					continue;
 				} catch( Exception e ) { }
 
@@ -499,7 +507,6 @@ class DataDownloader extends Thread
 					return false;
 				}
 
-				float percent = 0.0f;
 				if( totalLen > 0 )
 					percent = stream.getBytesRead() * 100.0f / totalLen;
 				Status.setText( downloadCount + "/" + downloadTotal + ": " + res.getString(R.string.dl_progress, percent, path) );
@@ -601,6 +608,8 @@ class DataDownloader extends Thread
 	
 	private static DefaultHttpClient HttpWithDisabledSslCertCheck()
 	{
+		return new DefaultHttpClient();
+		// This code does not work
 		/*
         HostnameVerifier hostnameVerifier = org.apache.http.conn.ssl.SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
 
@@ -616,8 +625,7 @@ class DataDownloader extends Thread
         HttpsURLConnection.setDefaultHostnameVerifier(hostnameVerifier);
 
         return http;
-        */
-        return new DefaultHttpClient();
+		*/
 	}
 	
 	public StatusWriter Status;

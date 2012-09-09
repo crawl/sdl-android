@@ -1,4 +1,19 @@
 #!/bin/sh
+#set -eu # Bashism, does not work with default shell on Ubuntu 12.04
+
+install_apk=false
+run_apk=false
+
+if [ "$#" -gt 0 -a "$1" = "-i" ]; then
+	shift
+	install_apk=true
+fi
+
+if [ "$#" -gt 0 -a "$1" = "-r" ]; then
+	shift
+	install_apk=true
+	run_apk=true
+fi
 
 # Set here your own NDK path if needed
 # export PATH=$PATH:~/src/endless_space/android-ndk-r7
@@ -14,8 +29,10 @@ if ( grep "package $AppFullName;" project/src/Globals.java > /dev/null && \
 fi
 
 MYARCH=linux-x86
+NCPU=4
 if uname -s | grep -i "linux" > /dev/null ; then
 	MYARCH=linux-x86
+	NCPU=`cat /proc/cpuinfo | grep -c -i processor`
 fi
 if uname -s | grep -i "darwin" > /dev/null ; then
 	MYARCH=darwin-x86
@@ -25,8 +42,7 @@ if uname -s | grep -i "windows" > /dev/null ; then
 fi
 
 rm -r -f project/bin/* # New Android SDK introduced some lame-ass optimizations to the build system which we should take care about
-
-cd project && env PATH=$NDKBUILDPATH nice -n19 ndk-build V=1 -j4 && \
+cd project && env PATH=$NDKBUILDPATH nice -n19 ndk-build -j$NCPU && \
  { grep "CustomBuildScript=y" ../AndroidAppSettings.cfg > /dev/null && \
    [ -`which ndk-build | xargs readlink -f | grep '/android-ndk-r[56789]'` != - ] && \
    echo Stripping libapplication.so by hand \
@@ -36,7 +52,13 @@ cd project && env PATH=$NDKBUILDPATH nice -n19 ndk-build V=1 -j4 && \
    `which ndk-build | sed 's@/ndk-build@@'`/toolchains/arm-linux-androideabi-4.4.3/prebuilt/$MYARCH/bin/arm-linux-androideabi-strip --strip-unneeded libs/armeabi/libapplication.so \
    || true ; } && \
  ant debug && \
- test -z "$1" && cd bin && \
- { adb install -r MainActivity-debug.apk | grep 'Failure' && \
- adb uninstall `grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'` && adb install -r MainActivity-debug.apk ; true ; } && \
- true # adb shell am start -n `grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'`/.MainActivity
+ $install_apk && [ -n "`adb devices | tail -n +2`" ] && \
+ { cd bin && adb install -r MainActivity-debug.apk | grep 'Failure' && \
+   adb uninstall `grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'` && adb install -r MainActivity-debug.apk ; true ; } && \
+  $run_apk && {
+   ActivityName="`grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'`/.MainActivity"
+   RUN_APK="adb shell am start -n $ActivityName"
+   echo "Running $ActivityName on the USB-connected device:"
+   echo "$RUN_APK"
+   eval $RUN_APK
+ }

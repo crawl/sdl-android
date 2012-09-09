@@ -9,8 +9,6 @@
  * software, or work derived from it, under other terms.
  */
 
-#include <sstream>
-#include <iostream>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -23,8 +21,10 @@
 /*----------------------------------------------------------
 	Definitions...
 ----------------------------------------------------------*/
+
 #define	SCREEN_W	320
-#define	SCREEN_H	240
+#define	SCREEN_H	200
+
 
 #define	BALLS	300
 
@@ -405,58 +405,9 @@ void tiled_back(SDL_Surface *back, SDL_Surface *screen, int xo, int yo)
 	SDL_BlitSurface(back, NULL, screen, &r);
 }
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
-extern "C" unsigned misaligned_mem_access(unsigned value, unsigned shift);
-
-unsigned misaligned_mem_access(unsigned value, unsigned shift)
-{
-    volatile unsigned *iptr = NULL;
-    volatile char *cptr = NULL;
-    volatile unsigned ret = 0;
- 
-#if defined(__GNUC__)
-# if defined(__i386__)
-    /* Enable Alignment Checking on x86 */
-    __asm__("pushf\norl $0x40000,(%esp)\npopf");
-# elif defined(__x86_64__) 
-     /* Enable Alignment Checking on x86_64 */
-    __asm__("pushf\norl $0x40000,(%rsp)\npopf");
-# endif
-#endif
-
-    /* malloc() always provides aligned memory */
-    cptr = (volatile char *)malloc(sizeof(unsigned) + 10);
-
-    /* Increment the pointer by one, making it misaligned */
-    iptr = (volatile unsigned *) (cptr + shift);
-
-    /* Dereference it as an int pointer, causing an unaligned access */
-    /* GCC usually tries to optimize this, thus our test succeeds when it should fail, if we remove "volatile" specifiers */
-    *iptr = value;
-    //memcpy( &ret, iptr, sizeof(unsigned) );
-    ret = *iptr;
-    /*
-    *((volatile char *)(&ret) + 0) = cptr[shift+0];
-    *((volatile char *)(&ret) + 1) = cptr[shift+1];
-    *((volatile char *)(&ret) + 2) = cptr[shift+2];
-    *((volatile char *)(&ret) + 3) = cptr[shift+3];
-    */
-    free((void *)cptr);
-
-    return ret;
-}
-#pragma GCC pop_options
-
 /*----------------------------------------------------------
 	main()
 ----------------------------------------------------------*/
-
-extern "C" void unaligned_test(unsigned * data, unsigned * target);
-extern "C" unsigned val0, val1, val2, val3, val4;
-
-unsigned val0 = 0x01234567, val1, val2, val3;
-
 
 int main(int argc, char* argv[])
 {
@@ -466,7 +417,7 @@ int main(int argc, char* argv[])
 	SDL_Surface	*back, *logo, *font, *font_hex;
 	SDL_Event	event;
 	int		bpp = 16,
-			flags = 0,
+			flags = SDL_HWSURFACE,
 			alpha = 1;
 	int		x_offs = 0, y_offs = 0;
 	long		tick,
@@ -604,23 +555,7 @@ int main(int argc, char* argv[])
 			fps = (float)fps_count * 1000.0 / (tick - fps_start);
 			fps_count = 0;
 			fps_start = tick;
-			
-			*((unsigned char *)(&val0) + 0) += 1;
-			*((unsigned char *)(&val0) + 1) += 1;
-			*((unsigned char *)(&val0) + 2) += 1;
-			*((unsigned char *)(&val0) + 3) += 1;
 		}
-		// MISALIGNED MEMORY ACCESS HERE! However all the devices that I have won't report it and won't send a signal or write to the /proc/kmsg,
-		// despite the /proc/cpu/alignment flag set.
-		val1 = misaligned_mem_access(val0, 1);
-		val2 = misaligned_mem_access(val0, 2);
-		val3 = misaligned_mem_access(val0, 3);
-		/*
-		print_num_hex(screen, font_hex, 0, 40, val0);
-		print_num_hex(screen, font_hex, 0, 60, val1);
-		print_num_hex(screen, font_hex, 0, 80, val2);
-		print_num_hex(screen, font_hex, 0, 100, val3);
-		*/
 
 		print_num(screen, font, screen->w-37, screen->h-12, fps);
 		++fps_count;
@@ -650,7 +585,7 @@ int main(int argc, char* argv[])
 			if( b & SDL_BUTTON_RMASK )
 				color |= 0x1f0;
 			if( b & SDL_BUTTON_MMASK )
-				color |= 0x1f;
+				color |= 0x0f;
 		}
 		r.x = mx;
 		r.y = my;
@@ -667,6 +602,12 @@ int main(int argc, char* argv[])
 			if(evt.type == SDL_KEYUP || evt.type == SDL_KEYDOWN)
 			{
 				__android_log_print(ANDROID_LOG_INFO, "Ballfield", "SDL key event: evt %s state %s key %d scancode %d mod %d unicode %d", evt.type == SDL_KEYUP ? "UP  " : "DOWN" , evt.key.state == SDL_PRESSED ? "PRESSED " : "RELEASED", (int)evt.key.keysym.sym, (int)evt.key.keysym.scancode, (int)evt.key.keysym.mod, (int)evt.key.keysym.unicode);
+				if(evt.key.keysym.sym == SDLK_ESCAPE)
+					return 0;
+			}
+			if(evt.type == SDL_MOUSEBUTTONUP || evt.type == SDL_MOUSEBUTTONDOWN)
+			{
+				__android_log_print(ANDROID_LOG_INFO, "Ballfield", "SDL mouse button event: evt %s state %s button %d coords %d:%d", evt.type == SDL_MOUSEBUTTONUP ? "UP  " : "DOWN" , evt.button.state == SDL_PRESSED ? "PRESSED " : "RELEASED", (int)evt.button.button, (int)evt.button.x, (int)evt.button.y);
 				if(evt.key.keysym.sym == SDLK_ESCAPE)
 					return 0;
 			}
@@ -728,8 +669,5 @@ int main(int argc, char* argv[])
 	SDL_FreeSurface(back);
 	SDL_FreeSurface(logo);
 	SDL_FreeSurface(font);
-	std::ostringstream os;
-	os << "lalala" << std::endl << "more text" << std::endl;
-	std::cout << os.str() << std::endl << "text text" << std::endl;
-	exit(0);
+	return 0;
 }

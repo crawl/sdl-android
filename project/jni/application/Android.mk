@@ -19,7 +19,9 @@ APP_SUBDIRS := $(filter-out %.c %.cpp, $(APP_SUBDIRS))
 LOCAL_SRC_FILES += $(foreach F, $(APP_SUBDIRS), $(addprefix $(F)/,$(notdir $(wildcard $(LOCAL_PATH)/$(F)/*.cpp))))
 LOCAL_SRC_FILES += $(foreach F, $(APP_SUBDIRS), $(addprefix $(F)/,$(notdir $(wildcard $(LOCAL_PATH)/$(F)/*.c))))
 
-LOCAL_CPP_FEATURES := exceptions rtti
+# Disabled because they give slight overhead, add "-frtti -fexceptions" to the AppCflags inside AndroidAppSettings.cfg if you need them
+# If you use setEnvironment.sh you may write "env CXXFLAGS='-frtti -fexceptions' ../setEnvironment.sh ./configure".
+#LOCAL_CPP_FEATURES := exceptions rtti
 
 LOCAL_CFLAGS :=
 LOCAL_C_INCLUDES :=
@@ -41,7 +43,9 @@ LOCAL_SHARED_LIBRARIES := sdl-$(SDL_VERSION) $(filter-out $(APP_AVAILABLE_STATIC
 
 LOCAL_STATIC_LIBRARIES := $(filter $(APP_AVAILABLE_STATIC_LIBS), $(COMPILED_LIBRARIES))
 
-#LOCAL_STATIC_LIBRARIES += gnustl_static
+APP_STL := gnustl_static
+
+LOCAL_STATIC_LIBRARIES += gnustl_static
 
 LOCAL_LDLIBS := -lGLESv1_CM -ldl -llog -lz
 
@@ -53,10 +57,13 @@ ifneq ($(CRYSTAX_R7_TOOLCHAIN),) # Crystax has 4.6.3 support and puts its libs s
 LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/include
 LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/libs/$(TARGET_ARCH_ABI)/$(APP_TOOLCHAIN_VERSION) -lgnustl_static
 else
-#ifneq ($(NDK_R7_TOOLCHAIN)$(CRYSTAX_R7_TOOLCHAIN),) # NDK r7 broke it even more
+#ifneq ($NDK_R8B_TOOLCHAIN,) # They've changed the path, yet again
+#LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/include $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/libs/$(TARGET_ARCH_ABI)/include
+#LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/$(NDK_TOOLCHAIN_VERSION)/libs/$(TARGET_ARCH_ABI) -lgnustl_static
+#else
 ifneq ($(NDK_R7_TOOLCHAIN),) # NDK r7 broke it even more
-LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/include
-LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/libs/$(TARGET_ARCH_ABI) -lgnustl_static
+#LOCAL_C_INCLUDES += $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/include
+#LOCAL_LDLIBS += -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/libs/$(TARGET_ARCH_ABI) -lgnustl_static
 # You can have multiple C++ file extensions starting from NDK r7
 LOCAL_CPP_EXTENSION := .cpp .cxx .cc
 else
