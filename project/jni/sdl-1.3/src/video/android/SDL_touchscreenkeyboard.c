@@ -114,6 +114,7 @@ oldGlState;
 
 static inline void beginDrawingTex()
 {
+/*
 	// Save OpenGL state
 	glGetError(); // Clear error flag
 	// This code does not work on 1.6 emulator, and on some older devices
@@ -142,11 +143,12 @@ static inline void beginDrawingTex()
 	}
 
 	glEnable(GL_TEXTURE_2D);
+*/
 }
 
 static inline void endDrawingTex()
 {
-    /*
+/*    
 	// Restore OpenGL state
 	if( oldGlState.texture2d == GL_FALSE )
 		glDisable(GL_TEXTURE_2D);
@@ -158,11 +160,11 @@ static inline void endDrawingTex()
 	glBlendFunc(oldGlState.blend1, oldGlState.blend2);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, oldGlState.texFilter1);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, oldGlState.texFilter2);
-    */
+    
 	
 	glDisable(GL_BLEND);
 	glDisable(GL_TEXTURE_2D);
-	
+*/	
 }
 
 static inline void drawCharTexFlip(GLTexture_t * tex, SDL_Rect * src, SDL_Rect * dest, int flipX, int flipY, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
