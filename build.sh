@@ -52,13 +52,15 @@ cd project && env PATH=$NDKBUILDPATH nice -n19 ndk-build -j$NCPU && \
    `which ndk-build | sed 's@/ndk-build@@'`/toolchains/arm-linux-androideabi-4.4.3/prebuilt/$MYARCH/bin/arm-linux-androideabi-strip --strip-unneeded libs/armeabi/libapplication.so \
    || true ; } && \
  ant debug && \
- $install_apk && [ -n "`adb devices | tail -n +2`" ] && \
+if $install_apk; then \
+ [ -n "`adb devices | tail -n +2`" ] && \
  { cd bin && adb install -r MainActivity-debug.apk | grep 'Failure' && \
-   adb uninstall `grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'` && adb install -r MainActivity-debug.apk ; true ; } && \
-  $run_apk && {
+   adb uninstall `grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'` && adb install -r MainActivity-debug.apk ; true ; }
+fi && \
+if $run_apk; then \
    ActivityName="`grep AppFullName ../../AndroidAppSettings.cfg | sed 's/.*=//'`/.MainActivity"
    RUN_APK="adb shell am start -n $ActivityName"
    echo "Running $ActivityName on the USB-connected device:"
    echo "$RUN_APK"
    eval $RUN_APK
- }
+fi
