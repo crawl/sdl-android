@@ -1,4 +1,6 @@
 project/local.properties
+project/proguard-project.txt
+project/project.properties
 project/bin
 project/gen
 project/libs
