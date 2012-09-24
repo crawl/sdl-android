@@ -28,6 +28,10 @@ if ( grep "package $AppFullName;" project/src/Globals.java > /dev/null && \
 	touch project/src/Globals.java
 fi
 
+if [ ! -e project/local.properties ] ; then
+	cd project ; android update project -p . --target android-14; cd ..
+fi
+
 MYARCH=linux-x86
 NCPU=4
 if uname -s | grep -i "linux" > /dev/null ; then
