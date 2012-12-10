@@ -55,7 +55,11 @@ cd project && env PATH=$NDKBUILDPATH nice -n19 ndk-build -j$NCPU && \
    cp jni/application/src/libapplication.so libs/armeabi && \
    `which ndk-build | sed 's@/ndk-build@@'`/toolchains/arm-linux-androideabi-4.4.3/prebuilt/$MYARCH/bin/arm-linux-androideabi-strip --strip-unneeded libs/armeabi/libapplication.so \
    || true ; } && \
- ant debug && \
+if [ -e ant.properties ]; then \
+ ant release ;\
+else \
+ ant debug ;\
+fi && \
 if $install_apk; then \
  [ -n "`adb devices | tail -n +2`" ] && \
  { cd bin && adb install -r MainActivity-debug.apk | grep 'Failure' && \
