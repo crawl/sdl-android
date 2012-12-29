@@ -75,6 +75,8 @@ import android.os.Message;
 import android.graphics.PixelFormat;
 import java.util.concurrent.Semaphore;
 import android.content.pm.ActivityInfo;
+import android.view.Display;
+import android.text.InputType;
 
 public class MainActivity extends Activity
 {
@@ -102,26 +104,29 @@ public class MainActivity extends Activity
 		_layout2 = new LinearLayout(this);
 		_layout2.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-		_btn = new Button(this);
-		_btn.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-		_btn.setText(getResources().getString(R.string.device_change_cfg));
-		class onClickListener implements View.OnClickListener
+		if( Globals.StartupMenuButtonTimeout > 0 )
 		{
-				public MainActivity p;
-				onClickListener( MainActivity _p ) { p = _p; }
-				public void onClick(View v)
-				{
-					setUpStatusLabel();
-					System.out.println("libSDL: User clicked change phone config button");
-					Settings.showConfig(p, false);
-				}
-		};
-		_btn.setOnClickListener(new onClickListener(this));
+			_btn = new Button(this);
+			_btn.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+			_btn.setText(getResources().getString(R.string.device_change_cfg));
+			class onClickListener implements View.OnClickListener
+			{
+					public MainActivity p;
+					onClickListener( MainActivity _p ) { p = _p; }
+					public void onClick(View v)
+					{
+						setUpStatusLabel();
+						System.out.println("libSDL: User clicked change phone config button");
+						Settings.showConfig(p, false);
+					}
+			};
+			_btn.setOnClickListener(new onClickListener(this));
 
-		_layout2.addView(_btn);
+			_layout2.addView(_btn);
+		}
 
 		_layout.addView(_layout2);
-		
+
 		ImageView img = new ImageView(this);
 
 		img.setScaleType(ImageView.ScaleType.FIT_CENTER /* FIT_XY */ );
@@ -144,8 +149,6 @@ public class MainActivity extends Activity
 		{
 			_videoLayout.addView(_ad.getView());
 			_ad.getView().setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.RIGHT));
-			_ad.getView().setFocusable(true);
-			_ad.getView().setFocusableInTouchMode(true);
 		}
 		
 		setContentView(_videoLayout);
@@ -214,7 +217,7 @@ public class MainActivity extends Activity
 		if( Parent._tv == null )
 		{
 			Parent._tv = new TextView(Parent);
-			Parent._tv.setMaxLines(1);
+			Parent._tv.setMaxLines(2);
 			Parent._tv.setText(R.string.init);
 			Parent._layout2.addView(Parent._tv);
 		}
@@ -241,11 +244,50 @@ public class MainActivity extends Activity
 
 	public void initSDL()
 	{
+		(new Thread(new Runnable()
+		{
+			public void run()
+			{
+				//int tries = 30;
+				while( isCurrentOrientationHorizontal() != Globals.HorizontalOrientation )
+				{
+					System.out.println("libSDL: Waiting for screen orientation to change - the device is probably in the lockscreen mode");
+					try {
+						Thread.sleep(500);
+					} catch( Exception e ) {}
+					/*
+					tries--;
+					if( tries <= 0 )
+					{
+						System.out.println("libSDL: Giving up waiting for screen orientation change");
+						break;
+					}
+					*/
+					if( _isPaused )
+					{
+						System.out.println("libSDL: Application paused, cancelling SDL initialization until it will be brought to foreground");
+						return;
+					}
+				}
+				runOnUiThread(new Runnable()
+				{
+					public void run()
+					{
+						initSDLInternal();
+					}
+				});
+			}
+		})).start();
+	}
+
+	private void initSDLInternal()
+	{
 		if(sdlInited)
 			return;
 		System.out.println("libSDL: Initializing video and SDL application");
+		
 		sdlInited = true;
-		if(Globals.UseAccelerometerAsArrowKeys)
+		if(Globals.UseAccelerometerAsArrowKeys || Globals.AppUsesAccelerometer)
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
 					WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		_videoLayout.removeView(_layout);
@@ -267,9 +309,6 @@ public class MainActivity extends Activity
 		{
 			_videoLayout.addView(_ad.getView());
 			_ad.getView().setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.RIGHT));
-			_ad.getView().setFocusable(true);
-			_ad.getView().setFocusableInTouchMode(true);
-			_ad.getView().requestFocus();
 		}
 		// Receive keyboard events
 		DimSystemStatusBar.get().dim(_videoLayout);
@@ -309,7 +348,9 @@ public class MainActivity extends Activity
 			{
 				downloader.setStatusField(_tv);
 				if( downloader.DownloadComplete )
+				{
 					initSDL();
+				}
 			}
 		}
 		//if( _ad.getView() != null )
@@ -388,13 +429,35 @@ public class MainActivity extends Activity
 					_parent.hideScreenKeyboard();
 					return true;
 				}
-				if ((sendBackspace && event.getAction() == KeyEvent.ACTION_UP) && (keyCode == KeyEvent.KEYCODE_DEL || keyCode == KeyEvent.KEYCODE_CLEAR))
+				if (keyCode == KeyEvent.KEYCODE_DEL || keyCode == KeyEvent.KEYCODE_CLEAR)
 				{
-					synchronized(textInput) {
-						DemoRenderer.nativeTextInput( 8, 0 ); // Send backspace to native code
+					if (sendBackspace && event.getAction() == KeyEvent.ACTION_UP)
+					{
+						synchronized(textInput) {
+							DemoRenderer.nativeTextInput( 8, 0 ); // Send backspace to native code
+						}
 					}
-					return false; // and proceed to delete text in keyboard input field
+					// EditText deletes two characters at a time, here's a hacky fix
+					if (event.getAction() == KeyEvent.ACTION_DOWN && (event.getFlags() | KeyEvent.FLAG_SOFT_KEYBOARD) != 0)
+					{
+						EditText t = (EditText) v;
+						int start = t.getSelectionStart();  //get cursor starting position
+						int end = t.getSelectionEnd();      //get cursor ending position
+						if ( start < 0 )
+							return true;
+						if ( end < 0 || end == start )
+						{
+							start --;
+							if ( start < 0 )
+								return true;
+							end = start + 1;
+						}
+						t.setText(t.getText().toString().substring(0, start) + t.getText().toString().substring(end));
+						t.setSelection(start);
+						return true;
+					}
 				}
+				//System.out.println("Key " + keyCode + " flags " + event.getFlags() + " action " + event.getAction());
 				return false;
 			}
 		};
@@ -407,7 +470,8 @@ public class MainActivity extends Activity
 		_screenKeyboard.setOnKeyListener(new simpleKeyListener(this, sendBackspace));
 		_screenKeyboard.setHint(R.string.text_edit_click_here);
 		_screenKeyboard.setText(oldText);
-		_screenKeyboard.setKeyListener(new TextKeyListener(TextKeyListener.Capitalize.NONE, false));
+		//_screenKeyboard.setKeyListener(new TextKeyListener(TextKeyListener.Capitalize.NONE, false));
+		_screenKeyboard.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
 		_screenKeyboard.setFocusableInTouchMode(true);
 		_screenKeyboard.setFocusable(true);
 		_screenKeyboard.requestFocus();
@@ -436,14 +500,42 @@ public class MainActivity extends Activity
 		mGLView.requestFocus();
 	};
 
-	public void setAdvertisementPosition(int left, int top)
+	public boolean isScreenKeyboardShown()
+	{
+		return _screenKeyboard != null;
+	};
+
+	final static int ADVERTISEMENT_POSITION_RIGHT = -1;
+	final static int ADVERTISEMENT_POSITION_BOTTOM = -1;
+	final static int ADVERTISEMENT_POSITION_CENTER = -2;
+
+	public void setAdvertisementPosition(int x, int y)
 	{
 		
 		if( _ad.getView() != null )
 		{
-			final FrameLayout.LayoutParams layout = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT);
-			layout.leftMargin = left;
-			layout.topMargin = top;
+			final FrameLayout.LayoutParams layout = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+			layout.gravity = 0;
+			layout.leftMargin = 0;
+			layout.topMargin = 0;
+			if( x == ADVERTISEMENT_POSITION_RIGHT )
+				layout.gravity |= Gravity.RIGHT;
+			else if ( x == ADVERTISEMENT_POSITION_CENTER )
+				layout.gravity |= Gravity.CENTER_HORIZONTAL;
+			else
+			{
+				layout.gravity |= Gravity.LEFT;
+				layout.leftMargin = x;
+			}
+			if( y == ADVERTISEMENT_POSITION_BOTTOM )
+				layout.gravity |= Gravity.BOTTOM;
+			else if ( x == ADVERTISEMENT_POSITION_CENTER )
+				layout.gravity |= Gravity.CENTER_VERTICAL;
+			else
+			{
+				layout.gravity |= Gravity.TOP;
+				layout.topMargin = y;
+			}
 			class Callback implements Runnable
 			{
 				public void run()
@@ -484,6 +576,20 @@ public class MainActivity extends Activity
 			params[2] = layout.topMargin;
 			params[3] = _ad.getView().getMeasuredWidth();
 			params[4] = _ad.getView().getMeasuredHeight();
+		}
+	}
+	public void requestNewAdvertisement()
+	{
+		if( _ad.getView() != null )
+		{
+			class Callback implements Runnable
+			{
+				public void run()
+				{
+					_ad.requestNewAd();
+				}
+			}
+			runOnUiThread(new Callback());
 		}
 	}
 
@@ -679,9 +785,9 @@ public class MainActivity extends Activity
 
 				ZipInputStream zip = new ZipInputStream(in);
 
-				File cacheDir = getCacheDir();
+				File libDir = getFilesDir();
 				try {
-					cacheDir.mkdirs();
+					libDir.mkdirs();
 				} catch( SecurityException ee ) { };
 				
 				byte[] buf = new byte[16384];
@@ -700,14 +806,14 @@ public class MainActivity extends Activity
 					}
 					if( entry.isDirectory() )
 					{
-						File outDir = new File( cacheDir.getAbsolutePath() + "/" + entry.getName() );
+						File outDir = new File( libDir.getAbsolutePath() + "/" + entry.getName() );
 						if( !(outDir.exists() && outDir.isDirectory()) )
 							outDir.mkdirs();
 						continue;
 					}
 
 					OutputStream out = null;
-					String path = cacheDir.getAbsolutePath() + "/" + entry.getName();
+					String path = libDir.getAbsolutePath() + "/" + entry.getName();
 					try {
 						File outDir = new File( path.substring(0, path.lastIndexOf("/") ));
 						if( !(outDir.exists() && outDir.isDirectory()) )
@@ -732,7 +838,7 @@ public class MainActivity extends Activity
 				for(String l : Globals.AppLibraries)
 				{
 					String libname = System.mapLibraryName(l);
-					File libpath = new File(cacheDir, libname);
+					File libpath = new File(libDir, libname);
 					System.out.println("libSDL: loading lib " + libpath.getPath());
 					System.load(libpath.getPath());
 					libpath.delete();
@@ -746,30 +852,38 @@ public class MainActivity extends Activity
 
 		// ----- VCMI hack -----
 			try {
-				//System.out.println("libSDL: Extracting VCMI server");
+				//System.out.println("libSDL: Extracting binaries");
 				
 				InputStream in = null;
 				try
 				{
 					for( int i = 0; ; i++ )
 					{
-						InputStream in2 = getAssets().open("vcmiserver" + String.valueOf(i));
+						InputStream in2 = getAssets().open("binaries.zip" + String.format("%02d", i));
 						if( in == null )
 							in = in2;
 						else
 							in = new SequenceInputStream( in, in2 );
 					}
 				}
-				catch( IOException ee ) { }
+				catch( IOException ee )
+				{
+					try
+					{
+						if( in == null )
+							in = getAssets().open("binaries.zip");
+					}
+					catch( IOException eee ) {}
+				}
 
 				if( in == null )
-					throw new RuntimeException("libSDL: Extracting VCMI server failed, the .apk file packaged incorrectly");
+					throw new RuntimeException("libSDL: Extracting binaries failed, the .apk file packaged incorrectly");
 
 				ZipInputStream zip = new ZipInputStream(in);
 
-				File cacheDir = getFilesDir();
+				File libDir = getFilesDir();
 				try {
-					cacheDir.mkdirs();
+					libDir.mkdirs();
 				} catch( SecurityException ee ) { };
 				
 				byte[] buf = new byte[16384];
@@ -783,19 +897,19 @@ public class MainActivity extends Activity
 					*/
 					if( entry == null )
 					{
-						System.out.println("Extracting libs finished");
+						System.out.println("Extracting binaries finished");
 						break;
 					}
 					if( entry.isDirectory() )
 					{
-						File outDir = new File( cacheDir.getAbsolutePath() + "/" + entry.getName() );
+						File outDir = new File( libDir.getAbsolutePath() + "/" + entry.getName() );
 						if( !(outDir.exists() && outDir.isDirectory()) )
 							outDir.mkdirs();
 						continue;
 					}
 
 					OutputStream out = null;
-					String path = cacheDir.getAbsolutePath() + "/" + entry.getName();
+					String path = libDir.getAbsolutePath() + "/" + entry.getName();
 					try {
 						File outDir = new File( path.substring(0, path.lastIndexOf("/") ));
 						if( !(outDir.exists() && outDir.isDirectory()) )
@@ -859,7 +973,7 @@ public class MainActivity extends Activity
 				for(String l : libs)
 				{
 					String libname = System.mapLibraryName(l);
-					File libpath = new File(context.getCacheDir(), libname);
+					File libpath = new File(context.getFilesDir(), libname);
 					System.out.println("libSDL: loading lib " + libpath.getPath());
 					System.load(libpath.getPath());
 					libpath.delete();
@@ -881,6 +995,12 @@ public class MainActivity extends Activity
 			System.out.println("libSDL: Cannot get the version of our own package: " + e);
 		}
 		return 0;
+	}
+
+	public boolean isCurrentOrientationHorizontal()
+	{
+		Display getOrient = getWindowManager().getDefaultDisplay();
+		return getOrient.getWidth() >= getOrient.getHeight();
 	}
 
 	public FrameLayout getVideoLayout() { return _videoLayout; }

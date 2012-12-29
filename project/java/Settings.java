@@ -54,11 +54,18 @@ import android.graphics.BitmapFactory;
 import android.graphics.Bitmap;
 import android.widget.TextView;
 import android.widget.EditText;
+import android.widget.ScrollView;
+import android.widget.Button;
+import android.view.View;
+import android.widget.LinearLayout;
 import android.text.Editable;
 import android.text.SpannedString;
 import android.content.Intent;
 import android.app.PendingIntent;
 import android.app.AlarmManager;
+import android.util.DisplayMetrics;
+import android.net.Uri;
+import java.util.concurrent.Semaphore;
 
 // TODO: too much code here, split into multiple files, possibly auto-generated menus?
 class Settings
@@ -132,7 +139,7 @@ class Settings
 					out.writeInt(Globals.ScreenKbControlsLayout[i][ii]);
 			out.writeInt(Globals.LeftClickKey);
 			out.writeInt(Globals.RightClickKey);
-			out.writeBoolean(Globals.SmoothVideo);
+			out.writeBoolean(Globals.VideoLinearFilter);
 			out.writeInt(Globals.LeftClickTimeout);
 			out.writeInt(Globals.RightClickTimeout);
 			out.writeBoolean(Globals.RelativeMouseMovement);
@@ -278,7 +285,7 @@ class Settings
 					Globals.ScreenKbControlsLayout[i][ii] = settingsFile.readInt();
 			Globals.LeftClickKey = settingsFile.readInt();
 			Globals.RightClickKey = settingsFile.readInt();
-			Globals.SmoothVideo = settingsFile.readBoolean();
+			Globals.VideoLinearFilter = settingsFile.readBoolean();
 			Globals.LeftClickTimeout = settingsFile.readInt();
 			Globals.RightClickTimeout = settingsFile.readInt();
 			Globals.RelativeMouseMovement = settingsFile.readBoolean();
@@ -292,35 +299,37 @@ class Settings
 			Globals.BrokenLibCMessageShown = settingsFile.readBoolean();
 			Globals.TouchscreenKeyboardDrawSize = settingsFile.readInt();
 			int cfgVersion = settingsFile.readInt();
+
+			settingsLoaded = true;
+
+			System.out.println("libSDL: Settings.Load(): loaded settings successfully");
+			settingsFile.close();
+
 			System.out.println("libSDL: old cfg version " + cfgVersion + ", our version " + p.getApplicationVersion());
-			if( cfgVersion < p.getApplicationVersion() )
+			if( cfgVersion != p.getApplicationVersion() )
 			{
 				DeleteFilesOnUpgrade();
 				if( Globals.ResetSdlConfigForThisVersion )
 				{
 					System.out.println("libSDL: old cfg version " + cfgVersion + ", our version " + p.getApplicationVersion() + " and we need to clean up config file");
 					// Delete settings file, and restart the application
-					settingsFile.close();
-					ObjectOutputStream out = new ObjectOutputStream(p.openFileOutput( SettingsFileName, p.MODE_WORLD_READABLE ));
-					out.writeInt(-1);
-					out.close();
-					new File( p.getFilesDir() + "/" + SettingsFileName ).delete();
-					PendingIntent intent = PendingIntent.getActivity(p, 0, new Intent(p.getIntent()), p.getIntent().getFlags());
-					AlarmManager mgr = (AlarmManager) p.getSystemService(Context.ALARM_SERVICE);
-					mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 1000, intent);
-					System.exit(0);
+					DeleteSdlConfigOnUpgradeAndRestart(p);
 				}
+				Save(p);
 			}
-			
-			settingsLoaded = true;
 
-			System.out.println("libSDL: Settings.Load(): loaded settings successfully");
-			settingsFile.close();
 			return;
 			
 		} catch( FileNotFoundException e ) {
 		} catch( SecurityException e ) {
-		} catch ( IOException e ) {};
+		} catch ( IOException e ) {
+			DeleteFilesOnUpgrade();
+			if( Globals.ResetSdlConfigForThisVersion )
+			{
+				System.out.println("libSDL: old cfg version unknown or too old, our version " + p.getApplicationVersion() + " and we need to clean up config file");
+				DeleteSdlConfigOnUpgradeAndRestart(p);
+			}
+		};
 		
 		if( Globals.DataDir.length() == 0 )
 		{
@@ -345,7 +354,8 @@ class Settings
 
 		System.out.println("libSDL: Settings.Load(): loading settings failed, running config dialog");
 		p.setUpStatusLabel();
-		showConfig(p, true);
+		if( checkRamSize(p) )
+			showConfig(p, true);
 	}
 
 	// ===============================================================================================
@@ -619,7 +629,7 @@ class Settings
 					{
 						Globals.DownloadToSdcard = (item != 0);
 						Globals.DataDir = Globals.DownloadToSdcard ?
-										Environment.getExternalStorageDirectory().getAbsolutePath() + "/app-data/" + Globals.class.getPackage().getName() :
+										SdcardAppPath.getPath(p) :
 										p.getFilesDir().getAbsolutePath();
 						goBack(p);
 					}
@@ -718,6 +728,7 @@ class Settings
 		void run (final MainActivity p)
 		{
 			String [] downloadFiles = Globals.DataDownloadUrl.split("\\^");
+			final boolean [] mandatory = new boolean[downloadFiles.length];
 			
 			AlertDialog.Builder builder = new AlertDialog.Builder(p);
 			builder.setTitle(p.getResources().getString(R.string.downloads));
@@ -728,6 +739,11 @@ class Settings
 				items[i] = new String(downloadFiles[i].split("[|]")[0]);
 				if( items[i].toString().indexOf("!") == 0 )
 					items[i] = items[i].toString().substring(1);
+				if( items[i].toString().indexOf("!") == 0 )
+				{
+					items[i] = items[i].toString().substring(1);
+					mandatory[i] = true;
+				}
 			}
 
 			if( Globals.OptionalDataDownload == null || Globals.OptionalDataDownload.length != items.length )
@@ -743,7 +759,10 @@ class Settings
 					}
 				}
 				if( oldFormat )
+				{
 					Globals.OptionalDataDownload[0] = true;
+					mandatory[0] = true;
+				}
 			}
 
 			builder.setMultiChoiceItems(items, Globals.OptionalDataDownload, new DialogInterface.OnMultiChoiceClickListener()
@@ -751,6 +770,11 @@ class Settings
 				public void onClick(DialogInterface dialog, int item, boolean isChecked) 
 				{
 					Globals.OptionalDataDownload[item] = isChecked;
+					if( mandatory[item] && !isChecked )
+					{
+						Globals.OptionalDataDownload[item] = true;
+						((AlertDialog)dialog).getListView().setItemChecked(item, true);
+					}
 				}
 			});
 			builder.setPositiveButton(p.getResources().getString(R.string.ok), new DialogInterface.OnClickListener()
@@ -845,17 +869,10 @@ class Settings
 		}
 		boolean enabled()
 		{
-			return Globals.UseAccelerometerAsArrowKeys || ! Globals.AppHandlesJoystickSensitivity;
+			return Globals.UseAccelerometerAsArrowKeys;
 		}
 		void run (final MainActivity p)
 		{
-			if( ! Globals.UseAccelerometerAsArrowKeys || Globals.AppHandlesJoystickSensitivity )
-			{
-				Globals.AccelerometerSensitivity = 2; // Slow, full range
-				showAccelerometerCenterConfig(p);
-				return;
-			}
-			
 			final CharSequence[] items = { p.getResources().getString(R.string.accel_fast),
 											p.getResources().getString(R.string.accel_medium),
 											p.getResources().getString(R.string.accel_slow) };
@@ -885,13 +902,6 @@ class Settings
 		}
 		static void showAccelerometerCenterConfig(final MainActivity p)
 		{
-			if( ! Globals.UseAccelerometerAsArrowKeys || Globals.AppHandlesJoystickSensitivity )
-			{
-				Globals.AccelerometerCenterPos = 2; // Fixed horizontal center position
-				goBack(p);
-				return;
-			}
-			
 			final CharSequence[] items = { p.getResources().getString(R.string.accel_floating),
 											p.getResources().getString(R.string.accel_fixed_start),
 											p.getResources().getString(R.string.accel_fixed_horiz) };
@@ -2246,7 +2256,7 @@ class Settings
 
 			public void onTouchEvent(final MotionEvent ev)
 			{
-				if(Globals.ScreenKbControlsLayout.length >= currentButton)
+				if(currentButton >= Globals.ScreenKbControlsLayout.length)
 				{
 					setupButton(false);
 					return;
@@ -2306,7 +2316,7 @@ class Settings
 			};
 			boolean defaults[] = { 
 				Globals.KeepAspectRatio,
-				Globals.SmoothVideo
+				Globals.VideoLinearFilter
 			};
 
 			if(Globals.SwVideoMode && !Globals.CompatibilityHacksVideo)
@@ -2318,7 +2328,7 @@ class Settings
 				};
 				boolean defaults2[] = { 
 					Globals.KeepAspectRatio,
-					Globals.SmoothVideo,
+					Globals.VideoLinearFilter,
 					Globals.MultiThreadedVideo
 				};
 				items = items2;
@@ -2346,7 +2356,7 @@ class Settings
 					if( item == 0 )
 						Globals.KeepAspectRatio = isChecked;
 					if( item == 1 )
-						Globals.SmoothVideo = isChecked;
+						Globals.VideoLinearFilter = isChecked;
 					if( item == 2 )
 						Globals.MultiThreadedVideo = isChecked;
 				}
@@ -2372,6 +2382,64 @@ class Settings
 		}
 	}
 
+	static class ShowReadme extends Menu
+	{
+		String title(final MainActivity p)
+		{
+			return "Readme";
+		}
+		boolean enabled()
+		{
+			return true;
+		}
+		void run (final MainActivity p)
+		{
+			String readmes[] = Globals.ReadmeText.split("\\^");
+			String lang = new String(Locale.getDefault().getLanguage()) + ":";
+			String readme = readmes[0];
+			for( String r: readmes )
+			{
+				if( r.startsWith(lang) )
+					readme = r.substring(lang.length());
+			}
+			TextView text = new TextView(p);
+			text.setMaxLines(1000);
+			text.setText(readme);
+			text.setLayoutParams(new ViewGroup.LayoutParams( ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.FILL_PARENT));
+			AlertDialog.Builder builder = new AlertDialog.Builder(p);
+			ScrollView scroll = new ScrollView(p);
+			scroll.addView(text);
+			Button ok = new Button(p);
+			final AlertDialog alertDismiss[] = new AlertDialog[1];
+			ok.setOnClickListener(new View.OnClickListener()
+			{
+				public void onClick(View v)
+				{
+					alertDismiss[0].cancel();
+				}
+			});
+			ok.setText(R.string.ok);
+			LinearLayout layout = new LinearLayout(p);
+			layout.setOrientation(LinearLayout.VERTICAL);
+			layout.addView(scroll);
+			layout.addView(ok);
+			builder.setView(layout);
+			builder.setOnCancelListener(new DialogInterface.OnCancelListener()
+			{
+				public void onCancel(DialogInterface dialog)
+				{
+					goBack(p);
+				}
+			});
+			AlertDialog alert = builder.create();
+			alertDismiss[0] = alert;
+			alert.setOwnerActivity(p);
+			alert.show();
+		}
+	}
+
+	// ===============================================================================================
+
 	public static boolean deleteRecursively(File dir)
 	{
 		if (dir.isDirectory()) {
@@ -2396,14 +2464,29 @@ class Settings
 			deleteRecursively(f);
 		}
 	}
+	public static void DeleteSdlConfigOnUpgradeAndRestart(final MainActivity p)
+	{
+		try {
+			ObjectOutputStream out = new ObjectOutputStream(p.openFileOutput( SettingsFileName, p.MODE_WORLD_READABLE ));
+			out.writeInt(-1);
+			out.close();
+		} catch( FileNotFoundException e ) {
+		} catch ( IOException e ) { }
+		new File( p.getFilesDir() + "/" + SettingsFileName ).delete();
+		PendingIntent intent = PendingIntent.getActivity(p, 0, new Intent(p.getIntent()), p.getIntent().getFlags());
+		AlarmManager mgr = (AlarmManager) p.getSystemService(Context.ALARM_SERVICE);
+		mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 1000, intent);
+		System.exit(0);
+	}
+
 
 	// ===============================================================================================
 
 	static void Apply(Activity p)
 	{
 		nativeSetVideoDepth(Globals.VideoDepthBpp, Globals.NeedGles2 ? 1 : 0);
-		if(Globals.SmoothVideo)
-			nativeSetSmoothVideo();
+		if(Globals.VideoLinearFilter)
+			nativeSetVideoLinearFilter();
 		if( Globals.CompatibilityHacksVideo )
 		{
 			Globals.MultiThreadedVideo = true;
@@ -2436,6 +2519,8 @@ class Settings
 								Globals.ShowMouseCursor ? 1 : 0 );
 		if( Globals.AppUsesJoystick && (Globals.UseAccelerometerAsArrowKeys || Globals.UseTouchscreenKeyboard) )
 			nativeSetJoystickUsed();
+		if( Globals.AppUsesAccelerometer )
+			nativeSetAccelerometerUsed();
 		if( Globals.AppUsesMultitouch )
 			nativeSetMultitouchUsed();
 		nativeSetAccelerometerSettings(Globals.AccelerometerSensitivity, Globals.AccelerometerCenterPos);
@@ -2484,6 +2569,28 @@ class Settings
 		nativeSetEnv( "LANG", lang );
 		nativeSetEnv( "LANGUAGE", lang );
 		// TODO: get current user name and set envvar USER, the API is not availalbe on Android 1.6 so I don't bother with this
+		nativeSetEnv( "APPDIR", p.getFilesDir().getAbsolutePath() );
+		nativeSetEnv( "SECURE_STORAGE_DIR", p.getFilesDir().getAbsolutePath() );
+		nativeSetEnv( "DATADIR", Globals.DataDir );
+		nativeSetEnv( "UNSECURE_STORAGE_DIR", Globals.DataDir );
+		nativeSetEnv( "HOME", Globals.DataDir );
+		try {
+			DisplayMetrics dm = new DisplayMetrics();
+			p.getWindowManager().getDefaultDisplay().getMetrics(dm);
+			float xx = dm.widthPixels/dm.xdpi;
+			float yy = dm.heightPixels/dm.ydpi;
+			float x = Math.max(xx, yy);
+			float y = Math.min(xx, yy);
+			float displayInches = (float)Math.sqrt( x*x + y*y );
+			nativeSetEnv( "DISPLAY_SIZE", String.valueOf(displayInches) );
+			nativeSetEnv( "DISPLAY_SIZE_MM", String.valueOf((int)(displayInches*25.4f)) );
+			nativeSetEnv( "DISPLAY_WIDTH", String.valueOf(x) );
+			nativeSetEnv( "DISPLAY_HEIGHT", String.valueOf(y) );
+			nativeSetEnv( "DISPLAY_WIDTH_MM", String.valueOf((int)(x*25.4f)) );
+			nativeSetEnv( "DISPLAY_HEIGHT_MM", String.valueOf((int)(y*25.4f)) );
+			nativeSetEnv( "DISPLAY_RESOLUTION_WIDTH", String.valueOf(Math.max(dm.widthPixels, dm.heightPixels)) );
+			nativeSetEnv( "DISPLAY_RESOLUTION_HEIGHT", String.valueOf(Math.min(dm.widthPixels, dm.heightPixels)) );
+		} catch (Exception eeeee) {}
 	}
 
 	static byte [] loadRaw(Activity p, int res)
@@ -2581,6 +2688,61 @@ class Settings
 		}
 	}
 	
+	static boolean checkRamSize(final MainActivity p)
+	{
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader("/proc/meminfo"));
+			String line = null;
+			while( ( line = reader.readLine() ) != null )
+			{
+				if( line.indexOf("MemTotal:") == 0 )
+				{
+					String[] fields = line.split("[ \t]+");
+					Long size = Long.parseLong(fields[1]);
+					System.out.println("Device RAM size: " + size / 1024 + " Mb, required minimum RAM: " + Globals.AppMinimumRAM + " Mb" );
+					if( size / 1024 < Globals.AppMinimumRAM )
+					{
+						settingsChanged = true;
+						AlertDialog.Builder builder = new AlertDialog.Builder(p);
+						builder.setTitle(R.string.not_enough_ram);
+						builder.setMessage(p.getResources().getString( R.string.not_enough_ram_size, Globals.AppMinimumRAM, (int)(size / 1024)) );
+						builder.setPositiveButton(p.getResources().getString(R.string.ok), new DialogInterface.OnClickListener()
+						{
+							public void onClick(DialogInterface dialog, int item)
+							{
+								p.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + p.getPackageName())));
+								System.exit(0);
+							}
+						});
+						builder.setNegativeButton(p.getResources().getString(R.string.ignore), new DialogInterface.OnClickListener()
+						{
+							public void onClick(DialogInterface dialog, int item)
+							{
+								showConfig(p, true);
+								return;
+							}
+						});
+						builder.setOnCancelListener(new DialogInterface.OnCancelListener()
+						{
+							public void onCancel(DialogInterface dialog)
+							{
+								p.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + p.getPackageName())));
+								System.exit(0);
+							}
+						});
+						final AlertDialog alert = builder.create();
+						alert.setOwnerActivity(p);
+						alert.show();
+						return false;
+					}
+				}
+			}
+		} catch ( Exception e ) {
+			System.out.println("Error: cannot parse /proc/meminfo: " + e.toString());
+		}
+		return true;
+	}
+	
 	private static native void nativeSetTrackballUsed();
 	private static native void nativeSetTrackballDampening(int value);
 	private static native void nativeSetAccelerometerSettings(int sensitivity, int centerPos);
@@ -2592,9 +2754,10 @@ class Settings
 													int relativeMovement, int relativeMovementSpeed,
 													int relativeMovementAccel, int showMouseCursor);
 	private static native void nativeSetJoystickUsed();
+	private static native void nativeSetAccelerometerUsed();
 	private static native void nativeSetMultitouchUsed();
 	private static native void nativeSetTouchscreenKeyboardUsed();
-	private static native void nativeSetSmoothVideo();
+	private static native void nativeSetVideoLinearFilter();
 	private static native void nativeSetVideoDepth(int bpp, int gles2);
 	private static native void nativeSetCompatibilityHacks();
 	private static native void nativeSetVideoMultithreaded();

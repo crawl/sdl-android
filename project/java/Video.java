@@ -494,7 +494,8 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 		 // Calls main() and never returns, hehe - we'll call eglSwapBuffers() from native code
 		nativeInit( Globals.DataDir,
 					Globals.CommandLine,
-					( (Globals.SwVideoMode && Globals.MultiThreadedVideo) || Globals.CompatibilityHacksVideo ) ? 1 : 0 );
+					( (Globals.SwVideoMode && Globals.MultiThreadedVideo) || Globals.CompatibilityHacksVideo ) ? 1 : 0,
+					android.os.Debug.isDebuggerConnected() ? 1 : 0 );
 		System.exit(0); // The main() returns here - I don't bother with deinit stuff, just terminate process
 	}
 
@@ -502,9 +503,12 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 	{
 		if( ! super.SwapBuffers() && Globals.NonBlockingSwapBuffers )
 		{
-			synchronized(this)
+			if(mRatelimitTouchEvents)
 			{
-				this.notify();
+				synchronized(this)
+				{
+					this.notify();
+				}
 			}
 			return 0;
 		}
@@ -517,9 +521,12 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 		}
 
 		// Unblock event processing thread only after we've finished rendering
-		synchronized(this)
+		if(mRatelimitTouchEvents)
 		{
-			this.notify();
+			synchronized(this)
+			{
+				this.notify();
+			}
 		}
 		return 1;
 	}
@@ -558,6 +565,26 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 		context.runOnUiThread(cb);
 	}
 
+	public void hideScreenKeyboard() // Called from native code
+	{
+		class Callback implements Runnable
+		{
+			public MainActivity parent;
+			public void run()
+			{
+				parent.hideScreenKeyboard();
+			}
+		}
+		Callback cb = new Callback();
+		cb.parent = context;
+		context.runOnUiThread(cb);
+	}
+
+	public int isScreenKeyboardShown() // Called from native code
+	{
+		return context.isScreenKeyboardShown() ? 1 : 0;
+	}
+
 	public void exitApp()
 	{
 		 nativeDone();
@@ -574,6 +601,10 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 	public void setAdvertisementPosition(int left, int top)
 	{
 		context.setAdvertisementPosition(left, top);
+	}
+	public void requestNewAdvertisement()
+	{
+		context.requestNewAdvertisement();
 	}
 
 	private int PowerOf2(int i)
@@ -639,11 +670,12 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 
 
 	private native void nativeInitJavaCallbacks();
-	private native void nativeInit(String CurrentPath, String CommandLine, int multiThreadedVideo);
+	private native void nativeInit(String CurrentPath, String CommandLine, int multiThreadedVideo, int isDebuggerConnected);
 	private native void nativeResize(int w, int h, int keepAspectRatio);
 	private native void nativeDone();
 	private native void nativeGlContextLost();
 	public native void nativeGlContextRecreated();
+	public native void nativeGlContextLostAsyncEvent();
 	public static native void nativeTextInput( int ascii, int unicode );
 	public static native void nativeTextInputFinished();
 
@@ -658,10 +690,11 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 	private boolean mGlContextLost = false;
 	public boolean mGlSurfaceCreated = false;
 	public boolean mPaused = false;
-	//public boolean mPutToBackground = false;
 	private boolean mFirstTimeStart = true;
 	public int mWidth = 0;
 	public int mHeight = 0;
+
+	public static final boolean mRatelimitTouchEvents = true; //(Build.VERSION.SDK_INT >= Build.VERSION_CODES.FROYO);
 }
 
 class DemoGLSurfaceView extends GLSurfaceView_SDL {
@@ -680,7 +713,10 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 	public boolean onTouchEvent(final MotionEvent event) 
 	{
 		touchInput.process(event);
-		limitEventRate(event);
+		if( DemoRenderer.mRatelimitTouchEvents )
+		{
+			limitEventRate(event);
+		}
 		return true;
 	};
 
@@ -688,7 +724,10 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 	public boolean onGenericMotionEvent (final MotionEvent event)
 	{
 		touchInput.processGenericEvent(event);
-		limitEventRate(event);
+		if( DemoRenderer.mRatelimitTouchEvents )
+		{
+			limitEventRate(event);
+		}
 		return true;
 	}
 	
@@ -718,6 +757,7 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 		if(mRenderer.mPaused)
 			return;
 		mRenderer.mPaused = true;
+		mRenderer.nativeGlContextLostAsyncEvent();
 		if( mRenderer.accelerometer != null ) // For some reason it crashes here often - are we getting this event before initialization?
 			mRenderer.accelerometer.stop();
 		super.onPause();
@@ -770,6 +810,7 @@ class DemoGLSurfaceView extends GLSurfaceView_SDL {
 	public static native void nativeHardwareMouseDetected( int detected );
 	public static native void nativeMouseButtonsPressed( int buttonId, int pressedState );
 	public static native void nativeMouseWheel(int scrollX, int scrollY);
+	
 }
 
 

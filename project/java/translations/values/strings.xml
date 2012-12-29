@@ -141,7 +141,7 @@
     <string name="calibrate_touchscreen_touch">Touch all edges of the screen, press BACK when done</string>
 
     <string name="video">Video settings</string>
-    <string name="video_smooth">Smooth the video</string>
+    <string name="video_smooth">Linear video filtering</string>
     <string name="video_separatethread">Separate thread for video, will increase FPS on some devices</string>
 
     <string name="text_edit_click_here">Tap to start typing, press Back when done</string>
@@ -160,5 +160,9 @@
     <string name="broken_libc_text">Your device has broken system libraries, this application will most probably crash. Please install a system update, or flash a custom ROM, or copy file /system/lib/libc.so from another device (experts only!)</string>
 
     <string name="hardware_mouse_detected">Hardware mouse detected, disabling mouse emulation</string>
+
+    <string name="not_enough_ram">Not enough RAM</string>
+    <string name="not_enough_ram_size">This app needs %1$d Mb RAM, your device has %2$d Mb</string>
+    <string name="ignore">Ignore</string>
 
 </resources>

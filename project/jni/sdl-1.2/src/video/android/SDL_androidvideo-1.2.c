@@ -115,7 +115,7 @@ int ANDROID_ToggleFullScreen(_THIS, int fullscreen)
 	return 1;
 }
 
-#define SDL_NUMMODES 13
+#define SDL_NUMMODES 23
 static SDL_Rect *SDL_modelist[SDL_NUMMODES+1];
 
 //#define SDL_modelist		(this->hidden->SDL_modelist)
@@ -221,6 +221,10 @@ int ANDROID_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	int i;
 	static SDL_PixelFormat alphaFormat;
 	int bpp;
+	static int alreadyInitialized = 0;
+	if(alreadyInitialized)
+		__android_log_print(ANDROID_LOG_WARN, "libSDL", "Application calls SDL_Init() multiple times, this is not supported yet!");
+	alreadyInitialized = 1;
 
 	/* Determine the screen depth (use default 16-bit depth) */
 	/* we change this during the SDL_SetVideoMode implementation... */
@@ -279,7 +283,17 @@ int ANDROID_VideoInit(_THIS, SDL_PixelFormat *vformat)
 	SDL_modelist[10]->w = 800; SDL_modelist[10]->h = 480; // Virtual wide-screen mode
 	SDL_modelist[11]->w = 544; SDL_modelist[11]->h = 332; // I have no idea where this videomode is used
 	SDL_modelist[12]->w = 640; SDL_modelist[12]->h = 350; // For PrefClub app
-	SDL_modelist[13] = NULL;
+	SDL_modelist[13]->w = 320; SDL_modelist[13]->h = 256; // For UAE4ALL2
+	SDL_modelist[14]->w = 640; SDL_modelist[14]->h = 200; // For UAE4ALL2
+	SDL_modelist[15]->w = 640; SDL_modelist[15]->h = 240; // For UAE4ALL2
+	SDL_modelist[16]->w = 640; SDL_modelist[16]->h = 256; // For UAE4ALL2
+	SDL_modelist[17]->w = 320; SDL_modelist[17]->h = 262; // For UAE4ALL2
+	SDL_modelist[18]->w = 640; SDL_modelist[18]->h = 262; // For UAE4ALL2
+	SDL_modelist[19]->w = 320; SDL_modelist[19]->h = 270; // For UAE4ALL2
+	SDL_modelist[20]->w = 640; SDL_modelist[20]->h = 270; // For UAE4ALL2
+	SDL_modelist[21]->w = 320; SDL_modelist[21]->h = 216; // For UAE4ALL2
+	SDL_modelist[22]->w = 640; SDL_modelist[22]->h = 216; // For UAE4ALL2
+	SDL_modelist[23] = NULL;
 	
 	SDL_VideoInit_1_3(NULL, 0);
 	
@@ -368,7 +382,7 @@ SDL_Surface *ANDROID_SetVideoMode(_THIS, SDL_Surface *current,
 				SDL_OutOfMemory();
 				return(NULL);
 			}
-			if( SDL_ANDROID_SmoothVideo )
+			if( SDL_ANDROID_VideoLinearFilter )
 				SDL_SetTextureScaleMode((SDL_Texture *)current->hwdata, SDL_SCALEMODE_SLOW);
 
 			// Register main video texture to be recreated when needed
@@ -409,6 +423,7 @@ SDL_Surface *ANDROID_SetVideoMode(_THIS, SDL_Surface *current,
 */
 void ANDROID_VideoQuit(_THIS)
 {
+	__android_log_print(ANDROID_LOG_INFO, "libSDL", "Calling VideoQuit()");
 	if( !SDL_ANDROID_InsideVideoThread() )
 	{
 		__android_log_print(ANDROID_LOG_INFO, "libSDL", "Error: calling %s not from the main thread!", __PRETTY_FUNCTION__);
@@ -518,7 +533,7 @@ static int ANDROID_AllocHWSurface(_THIS, SDL_Surface *surface)
 		return(-1);
 	}
 
-	if( SDL_ANDROID_SmoothVideo )
+	if( SDL_ANDROID_VideoLinearFilter )
 		SDL_SetTextureScaleMode((SDL_Texture *)surface->hwdata, SDL_SCALEMODE_SLOW);
 
 	if( surface->format->Amask )
@@ -604,7 +619,7 @@ static int ANDROID_LockHWSurface(_THIS, SDL_Surface *surface)
 				SDL_OutOfMemory();
 				return(-1);
 			}
-			if( SDL_ANDROID_SmoothVideo )
+			if( SDL_ANDROID_VideoLinearFilter )
 				SDL_SetTextureScaleMode((SDL_Texture *)SDL_CurrentVideoSurface->hwdata, SDL_SCALEMODE_SLOW);
 			// Register main video texture to be recreated when needed
 			HwSurfaceCount++;
@@ -1040,11 +1055,14 @@ static void ANDROID_UpdateRects(_THIS, int numrects, SDL_Rect *rects)
 void ANDROID_GL_SwapBuffers(_THIS)
 {
 	//__android_log_print(ANDROID_LOG_INFO, "libSDL", "ANDROID_GL_SwapBuffers");
+	// TeeWorlds use hacky hack to draw from separate thread, however it works surprisingly well
+	/*
 	if( !SDL_ANDROID_InsideVideoThread() )
 	{
 		__android_log_print(ANDROID_LOG_INFO, "libSDL", "Error: calling %s not from the main thread!", __PRETTY_FUNCTION__);
 		return;
 	}
+	*/
 
 	SDL_ANDROID_CallJavaSwapBuffers();
 };
@@ -1092,6 +1110,7 @@ void SDL_ANDROID_VideoContextRecreated()
 		{
 			// Allocate HW texture
 			Uint32 format = PixelFormatEnumColorkey; // 1-bit alpha for color key, every surface will have colorkey so it's easier for us
+			int flags = HwSurfaceList[i]->flags;
 			if( HwSurfaceList[i]->format->Amask )
 				format = PixelFormatEnumAlpha;
 			if( HwSurfaceList[i] == SDL_CurrentVideoSurface )
@@ -1102,9 +1121,23 @@ void SDL_ANDROID_VideoContextRecreated()
 				SDL_OutOfMemory();
 				return;
 			}
-			if( SDL_ANDROID_SmoothVideo )
+			if( SDL_ANDROID_VideoLinearFilter )
 				SDL_SetTextureScaleMode((SDL_Texture *)HwSurfaceList[i]->hwdata, SDL_SCALEMODE_SLOW);
-			ANDROID_UnlockHWSurface(NULL, HwSurfaceList[i]); // Re-fill texture with graphics
+			if (flags & SDL_SRCALPHA)
+			{
+				int alpha = HwSurfaceList[i]->format->alpha;
+				ANDROID_SetHWAlpha(NULL, HwSurfaceList[i], alpha);
+				ANDROID_UnlockHWSurface(NULL, HwSurfaceList[i]); // Re-fill texture with graphics
+			}
+			else if (flags & SDL_SRCCOLORKEY)
+			{
+				int colorkey = HwSurfaceList[i]->format->colorkey;
+				ANDROID_SetHWColorKey(NULL, HwSurfaceList[i], colorkey);
+			}
+			else
+			{
+				ANDROID_UnlockHWSurface(NULL, HwSurfaceList[i]); // Re-fill texture with graphics
+			}
 		}
 	}
 };

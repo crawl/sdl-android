@@ -52,7 +52,7 @@ class Globals
 	public static boolean AppNeedsArrowKeys = true;
 	public static boolean AppNeedsTextInput = true;
 	public static boolean AppUsesJoystick = false;
-	public static boolean AppHandlesJoystickSensitivity = false;
+	public static boolean AppUsesAccelerometer = false;
 	public static boolean AppUsesMultitouch = false;
 	public static boolean NonBlockingSwapBuffers = false;
 	public static boolean ResetSdlConfigForThisVersion = false;
@@ -60,6 +60,7 @@ class Globals
 	public static int AppTouchscreenKeyboardKeysAmount = 4;
 	public static int AppTouchscreenKeyboardKeysAmountAutoFire = 1;
 	public static int StartupMenuButtonTimeout = 3000;
+	public static int AppMinimumRAM = 0;
 	public static Settings.Menu HiddenMenuOptions [] = {};
 	public static Settings.Menu FirstStartMenuOptions [] = { (AppUsesMouse && ! ForceRelativeMouseMode ? new Settings.DisplaySizeConfig(true) : new Settings.DummyMenu()), new Settings.OptionalDownloadConfig(true) };
 	public static String AdmobPublisherId = "";
@@ -108,7 +109,7 @@ class Globals
 	public static int MultitouchGestureSensitivity = 1;
 	public static int TouchscreenCalibration[] = new int[4];
 	public static String DataDir = new String("");
-	public static boolean SmoothVideo = false;
+	public static boolean VideoLinearFilter = true;
 	public static boolean MultiThreadedVideo = false;
 	public static boolean BrokenLibCMessageShown = false;
 }
