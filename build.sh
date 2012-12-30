@@ -16,7 +16,7 @@ if [ "$#" -gt 0 -a "$1" = "-r" ]; then
 fi
 
 [ -e project/local.properties ] || {
-	android update project -p project || exit 1
+	android update project -p project --target android-14 || exit 1    # had to add --target here: what should it really be?
 	rm -f project/src/Globals.java
 }
 # Set here your own NDK path if needed
