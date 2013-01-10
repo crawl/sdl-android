@@ -69,6 +69,8 @@ static jmethodID JavaGetAdvertisementParams = NULL;
 static jmethodID JavaSetAdvertisementVisible = NULL;
 static jmethodID JavaSetAdvertisementPosition = NULL;
 static jmethodID JavaRequestNewAdvertisement = NULL;
+static jmethodID JavaGetX16Inches = NULL;
+static jmethodID JavaGetY16Inches = NULL;
 static int glContextLost = 0;
 static int showScreenKeyboardDeferred = 0;
 static const char * showScreenKeyboardOldText = "";
@@ -315,6 +317,9 @@ JAVA_EXPORT_NAME(DemoRenderer_nativeInitJavaCallbacks) ( JNIEnv*  env, jobject t
 	JavaSetAdvertisementPosition = (*JavaEnv)->GetMethodID(JavaEnv, JavaRendererClass, "setAdvertisementPosition", "(II)V");
 	JavaRequestNewAdvertisement = (*JavaEnv)->GetMethodID(JavaEnv, JavaRendererClass, "requestNewAdvertisement", "()V");
 	
+	JavaGetX16Inches = (*JavaEnv)->GetMethodID(JavaEnv, JavaRendererClass, "getX16Inches", "()I");
+	JavaGetY16Inches = (*JavaEnv)->GetMethodID(JavaEnv, JavaRendererClass, "getY16Inches", "()I");
+
 	ANDROID_InitOSKeymap();
 }
 
@@ -411,4 +416,12 @@ int SDLCALL SDL_ANDROID_RequestNewAdvertisement(void)
 {
 	(*JavaEnv)->CallVoidMethod( JavaEnv, JavaRenderer, JavaRequestNewAdvertisement );
 	return 1;
+}
+int SDLCALL SDL_ANDROID_GetX16Inches(void)
+{
+	return (*JavaEnv)->CallIntMethod( JavaEnv, JavaRenderer, JavaGetX16Inches );
+}
+int SDLCALL SDL_ANDROID_GetY16Inches(void)
+{
+	return (*JavaEnv)->CallIntMethod( JavaEnv, JavaRenderer, JavaGetY16Inches );
 }

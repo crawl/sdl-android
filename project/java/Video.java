@@ -58,6 +58,7 @@ import java.util.LinkedList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+import android.util.DisplayMetrics;
 
 class Mouse
 {
@@ -441,9 +442,13 @@ abstract class DifferentTouchInput
 
 class DemoRenderer extends GLSurfaceView_SDL.Renderer
 {
+	private DisplayMetrics metrics;
+
 	public DemoRenderer(MainActivity _context)
 	{
 		context = _context;
+		metrics = new DisplayMetrics();
+		context.getWindowManager().getDefaultDisplay().getMetrics(metrics);
 	}
 	
 	public void onSurfaceCreated(GL10 gl, EGLConfig config) {
@@ -668,6 +673,14 @@ class DemoRenderer extends GLSurfaceView_SDL.Renderer
 		gl.glFlush();
 	}
 
+	public int getX16Inches() // Called from native code
+	{
+            return (int)(metrics.widthPixels*16 / metrics.xdpi);
+	}
+	public int getY16Inches() // Called from native code
+	{
+            return (int)(metrics.heightPixels*16 / metrics.ydpi);
+	}
 
 	private native void nativeInitJavaCallbacks();
 	private native void nativeInit(String CurrentPath, String CommandLine, int multiThreadedVideo, int isDebuggerConnected);

@@ -72,7 +72,8 @@ extern void SDL_ANDROID_WarpMouse(int x, int y);
 extern void SDL_ANDROID_DrawMouseCursor(int x, int y, int size, int alpha);
 extern void SDL_ANDROID_DrawMouseCursorIfNeeded();
 extern void SDL_ANDROID_CallJavaTogglePlainAndroidSoftKeyboardInput();
-
+extern int SDL_ANDROID_GetX16Inches();
+extern int SDL_ANDROID_GetY16Inches();
 
 #if SDL_VERSION_ATLEAST(1,3,0)
 extern SDL_Window * ANDROID_CurrentWindow;

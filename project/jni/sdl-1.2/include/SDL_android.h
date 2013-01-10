@@ -77,6 +77,9 @@ extern DECLSPEC int SDLCALL SDL_ANDROID_SetAdvertisementPosition(int x, int y);
 /* Request a new advertisement to be loaded */
 extern DECLSPEC int SDLCALL SDL_ANDROID_RequestNewAdvertisement(void);
 
+/* Get physical screen dimensions (in 16ths of an inch) */
+extern DECLSPEC int SDLCALL SDL_ANDROID_GetX16Inches(void);
+extern DECLSPEC int SDLCALL SDL_ANDROID_GetY16Inches(void);
 
 /** Exports for Java environment and Video object instance */
 extern DECLSPEC JNIEnv* SDL_ANDROID_JniEnv();
