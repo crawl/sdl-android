@@ -120,58 +120,78 @@ static inline void beginDrawingTex()
 {
 	// Save OpenGL state
 	glGetError(); // Clear error flag
+
 	// This code does not work on 1.6 emulator, and on some older devices
 	// However GLES 1.1 spec defines all theese values, so it's a device fault for not implementing them
-	oldGlState.texture2d = glIsEnabled(GL_TEXTURE_2D);
-	glGetIntegerv(GL_ACTIVE_TEXTURE, &oldGlState.texunitId);
-	glGetIntegerv(GL_CLIENT_ACTIVE_TEXTURE, &oldGlState.clientTexunitId);
-	glActiveTexture(GL_TEXTURE0);
-	glClientActiveTexture(GL_TEXTURE0);
-
-	glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldGlState.textureId);
-	glGetFloatv(GL_CURRENT_COLOR, &(oldGlState.color[0]));
-	glGetTexEnviv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &oldGlState.texEnvMode);
-	oldGlState.blend = glIsEnabled(GL_BLEND);
-	glGetIntegerv(GL_BLEND_SRC, &oldGlState.blend1);
-	glGetIntegerv(GL_BLEND_DST, &oldGlState.blend2);
-	glGetBooleanv(GL_COLOR_ARRAY, &oldGlState.colorArray);
-	// It's very unlikely that some app will use GL_TEXTURE_CROP_RECT_OES, so just skip it
-	if( glGetError() != GL_NO_ERROR )
+        // despite that ...
+	const char* vers = glGetString(GL_VERSION);
+	if (vers != NULL && strlen(vers) > 3 && strcmp((vers+strlen(vers)-3),"1.0") == 0 )
 	{
-		// Make the video somehow work on emulator
-		oldGlState.texture2d = GL_FALSE;
-		oldGlState.texunitId = GL_TEXTURE0;
-		oldGlState.clientTexunitId = GL_TEXTURE0;
-		oldGlState.textureId = 0;
-		oldGlState.texEnvMode = GL_MODULATE;
-		oldGlState.blend = GL_FALSE;
-		oldGlState.blend1 = GL_SRC_ALPHA;
-		oldGlState.blend2 = GL_ONE_MINUS_SRC_ALPHA;
-		oldGlState.colorArray = GL_FALSE;
+		__android_log_print(ANDROID_LOG_INFO, "libSDL", "GLES1.0 keyboard");
+		oldGlState.texture2d = GL_FALSE; //glIsEnabled(GL_TEXTURE_2D);
+		glEnable(GL_TEXTURE_2D);
+		oldGlState.blend = GL_FALSE; //glIsEnabled(GL_BLEND);
+		glEnable(GL_BLEND);
 	}
+	else
+	{
+		oldGlState.texture2d = glIsEnabled(GL_TEXTURE_2D);
+		glGetIntegerv(GL_ACTIVE_TEXTURE, &oldGlState.texunitId);
+		glGetIntegerv(GL_CLIENT_ACTIVE_TEXTURE, &oldGlState.clientTexunitId);
+		glActiveTexture(GL_TEXTURE0);
+		glClientActiveTexture(GL_TEXTURE0);
 
-	glEnable(GL_TEXTURE_2D);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisableClientState(GL_COLOR_ARRAY);
+		glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldGlState.textureId);
+		glGetFloatv(GL_CURRENT_COLOR, &(oldGlState.color[0]));
+		glGetTexEnviv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &oldGlState.texEnvMode);
+		oldGlState.blend = glIsEnabled(GL_BLEND);
+		glGetIntegerv(GL_BLEND_SRC, &oldGlState.blend1);
+		glGetIntegerv(GL_BLEND_DST, &oldGlState.blend2);
+		glGetBooleanv(GL_COLOR_ARRAY, &oldGlState.colorArray);
+
+		// It's very unlikely that some app will use GL_TEXTURE_CROP_RECT_OES, so just skip it
+		if( glGetError() != GL_NO_ERROR )
+		{
+			// Make the video somehow work on emulator
+			oldGlState.texture2d = GL_FALSE;
+			oldGlState.texunitId = GL_TEXTURE0;
+			oldGlState.clientTexunitId = GL_TEXTURE0;
+			oldGlState.textureId = 0;
+			oldGlState.texEnvMode = GL_MODULATE;
+			oldGlState.blend = GL_FALSE;
+			oldGlState.blend1 = GL_SRC_ALPHA;
+			oldGlState.blend2 = GL_ONE_MINUS_SRC_ALPHA;
+			oldGlState.colorArray = GL_FALSE;
+		}
+
+		glEnable(GL_TEXTURE_2D);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDisableClientState(GL_COLOR_ARRAY);
+	}
 }
 
 static inline void endDrawingTex()
 {
+	const char* vers = glGetString(GL_VERSION);
 	// Restore OpenGL state
 	if( oldGlState.texture2d == GL_FALSE )
 		glDisable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, oldGlState.textureId);
-	glColor4f(oldGlState.color[0], oldGlState.color[1], oldGlState.color[2], oldGlState.color[3]);
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, oldGlState.texEnvMode);
 	if( oldGlState.blend == GL_FALSE )
 		glDisable(GL_BLEND);
-	glBlendFunc(oldGlState.blend1, oldGlState.blend2);
-	glActiveTexture(oldGlState.texunitId);
-	glClientActiveTexture(oldGlState.clientTexunitId);
-	if( oldGlState.colorArray )
-		glEnableClientState(GL_COLOR_ARRAY);
+
+	if (vers != NULL && strlen(vers) > 3 && strcmp((vers+strlen(vers)-3),"1.0") != 0)
+	{
+		glBindTexture(GL_TEXTURE_2D, oldGlState.textureId);
+		glColor4f(oldGlState.color[0], oldGlState.color[1], oldGlState.color[2], oldGlState.color[3]);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, oldGlState.texEnvMode);
+		glBlendFunc(oldGlState.blend1, oldGlState.blend2);
+		glActiveTexture(oldGlState.texunitId);
+		glClientActiveTexture(oldGlState.clientTexunitId);
+		if( oldGlState.colorArray )
+		        glEnableClientState(GL_COLOR_ARRAY);
+	}
 }
 
 static inline void drawCharTexFlip(GLTexture_t * tex, SDL_Rect * src, SDL_Rect * dest, int flipX, int flipY, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
