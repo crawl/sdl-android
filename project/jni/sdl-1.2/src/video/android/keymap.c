@@ -86,7 +86,7 @@ void SDL_android_init_keymap(SDLKey *SDL_android_keymap)
   keymap[KEYCODE_PERIOD] = SDL_KEY(PERIOD);
   keymap[KEYCODE_TAB] = SDL_KEY(TAB);
   keymap[KEYCODE_SPACE] = SDL_KEY(SPACE);
-  keymap[KEYCODE_DEL] = SDL_KEY(BACKSPACE);
+  keymap[KEYCODE_DEL] = SDL_KEY(DELETE); //(BACKSPACE);
   keymap[KEYCODE_GRAVE] = SDL_KEY(GRAVE);
   keymap[KEYCODE_MINUS] = SDL_KEY(MINUS);
   keymap[KEYCODE_PLUS] = SDL_KEY(PLUS);

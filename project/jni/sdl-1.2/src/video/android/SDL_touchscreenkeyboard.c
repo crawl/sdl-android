@@ -127,7 +127,6 @@ static inline void beginDrawingTex()
 	const char* vers = glGetString(GL_VERSION);
 	if (vers != NULL && strlen(vers) > 3 && strcmp((vers+strlen(vers)-3),"1.0") == 0 )
 	{
-		__android_log_print(ANDROID_LOG_INFO, "libSDL", "GLES1.0 keyboard");
 		oldGlState.texture2d = GL_FALSE; //glIsEnabled(GL_TEXTURE_2D);
 		glEnable(GL_TEXTURE_2D);
 		oldGlState.blend = GL_FALSE; //glIsEnabled(GL_BLEND);
@@ -468,13 +467,13 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 				{
 					i = ArrowKeysPressed(x, y);
 					if( i & ARROW_UP )
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(UP) );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(UP), 0 );
 					if( i & ARROW_DOWN )
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(DOWN) );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(DOWN), 0 );
 					if( i & ARROW_LEFT )
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(LEFT) );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(LEFT), 0 );
 					if( i & ARROW_RIGHT )
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(RIGHT) );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(RIGHT), 0 );
 					oldArrows = i;
 				}
 			}
@@ -493,7 +492,7 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 					if( i == BUTTON_TEXT_INPUT )
 						SDL_ANDROID_ToggleScreenKeyboardTextInput(NULL);
 					else
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, buttonKeysyms[i] );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, buttonKeysyms[i], 0 );
 					if( i < AutoFireButtonsNum )
 					{
 						ButtonAutoFire[i] = 0;
@@ -521,10 +520,10 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 			}
 			else
 			{
-				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(UP) );
-				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(DOWN) );
-				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(LEFT) );
-				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(RIGHT) );
+				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(UP), 0 );
+				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(DOWN), 0 );
+				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(LEFT), 0 );
+				SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(RIGHT), 0 );
 				oldArrows = 0;
 			}
 		}
@@ -543,7 +542,7 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 				else
 				{
 					if( i != BUTTON_TEXT_INPUT )
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, buttonKeysyms[i] );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, buttonKeysyms[i], 0 );
 				}
 				if( i < AutoFireButtonsNum )
 				{
@@ -574,10 +573,10 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 				}
 				else
 				{
-					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(UP) );
-					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(DOWN) );
-					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(LEFT) );
-					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(RIGHT) );
+					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(UP), 0 );
+					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(DOWN), 0 );
+					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(LEFT), 0 );
+					SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(RIGHT), 0 );
 					oldArrows = 0;
 				}
 			}
@@ -596,21 +595,21 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 					if( i != oldArrows )
 					{
 						if( oldArrows & ARROW_UP && ! (i & ARROW_UP) )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(UP) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(UP), 0 );
 						if( oldArrows & ARROW_DOWN && ! (i & ARROW_DOWN) )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(DOWN) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(DOWN), 0 );
 						if( oldArrows & ARROW_LEFT && ! (i & ARROW_LEFT) )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(LEFT) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(LEFT), 0 );
 						if( oldArrows & ARROW_RIGHT && ! (i & ARROW_RIGHT) )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(RIGHT) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, SDL_KEY(RIGHT), 0 );
 						if( i & ARROW_UP )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(UP) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(UP), 0 );
 						if( i & ARROW_DOWN )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(DOWN) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(DOWN), 0 );
 						if( i & ARROW_LEFT )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(LEFT) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(LEFT), 0 );
 						if( i & ARROW_RIGHT )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(RIGHT) );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_PRESSED, SDL_KEY(RIGHT), 0 );
 					}
 					oldArrows = i;
 				}
@@ -627,7 +626,7 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 					if( !ButtonAutoFire[i] )
 					{
 						if( i != BUTTON_TEXT_INPUT )
-							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, buttonKeysyms[i] );
+							SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, buttonKeysyms[i], 0 );
 					}
 					else
 					{
@@ -676,7 +675,7 @@ unsigned SDL_ANDROID_processTouchscreenKeyboard(int x, int y, int action, int po
 				{
 					pointerInButtonRect[i] = -1;
 					if( i != BUTTON_TEXT_INPUT )
-						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, buttonKeysyms[i] );
+						SDL_ANDROID_MainThreadPushKeyboardKey( SDL_RELEASED, buttonKeysyms[i], 0 );
 				}
 			}
 		}
